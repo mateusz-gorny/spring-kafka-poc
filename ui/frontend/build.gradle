@@ -1,0 +1,21 @@
+plugins {
+    id 'base'
+}
+
+// Automatically use 'npm.cmd' on Windows, 'npm' elsewhere
+def npmCmd = System.getProperty('os.name').toLowerCase().contains('windows') ? 'npm.cmd' : 'npm'
+
+tasks.register('installFrontend', Exec) {
+    workingDir = projectDir
+    commandLine = [npmCmd, 'install']
+}
+
+tasks.register('buildFrontend', Exec) {
+    dependsOn 'installFrontend'
+    workingDir = projectDir
+    commandLine = [npmCmd, 'run', 'build']
+}
+
+tasks.named('build') {
+    dependsOn 'buildFrontend'
+}

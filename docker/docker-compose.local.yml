@@ -1,0 +1,20 @@
+services:
+  mongo:
+    ports:
+      - "27017:27017"
+
+  kafka:
+    ports:
+      - "9092:9092"
+
+  backend:
+    deploy:
+      replicas: 0
+
+  frontend:
+    deploy:
+      replicas: 0
+
+#  agent-gateway:
+#    deploy:
+#      replicas: 0

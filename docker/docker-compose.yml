@@ -1,0 +1,58 @@
+services:
+  mongo:
+    image: mongo:6
+    volumes:
+      - mongo_data:/data/db
+
+
+  zookeeper:
+    image: bitnami/zookeeper:3.8
+    environment:
+      - ALLOW_ANONYMOUS_LOGIN=yes
+
+  kafka:
+    image: bitnami/kafka:3.5
+    environment:
+      - KAFKA_BROKER_ID=1
+      - KAFKA_LISTENERS=PLAINTEXT://:9092
+      - KAFKA_ADVERTISED_LISTENERS=PLAINTEXT://kafka:9092
+      - KAFKA_ZOOKEEPER_CONNECT=zookeeper:2181
+      - ALLOW_PLAINTEXT_LISTENER=yes
+      - KAFKA_AUTO_CREATE_TOPICS_ENABLE=true
+    depends_on:
+      - zookeeper
+
+  backend:
+    build:
+      context: ..
+      dockerfile: application/Dockerfile
+    depends_on:
+      - mongo
+      - kafka
+    environment:
+      - SPRING_PROFILES_ACTIVE=dev
+      - JWT_SECRET=${JWT_SECRET}
+    ports:
+      - "8080:8080"
+
+  frontend:
+    build:
+      context: ../ui/frontend
+      dockerfile: Dockerfile
+    ports:
+      - "5173:80"
+
+  agent-gateway:
+    build:
+      context: ../
+      dockerfile: agent-gateway/Dockerfile
+    depends_on:
+      - kafka
+    environment:
+      - SPRING_PROFILES_ACTIVE=dev
+      - JWT_SECRET=${JWT_SECRET}
+    ports:
+      - "8090:8090"
+
+volumes:
+  mongo_data:

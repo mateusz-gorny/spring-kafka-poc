@@ -1,0 +1,13 @@
+rootProject.name = 'Monify'
+
+include 'application'
+include 'agent-gateway'
+include 'ui:frontend'
+
+include 'modules:user'
+include 'modules:credentials-store'
+include 'modules:triggers'
+include 'modules:workflows'
+include 'modules:agents-registry'
+include 'modules:agents-token'
+include 'modules:agents:send-email'

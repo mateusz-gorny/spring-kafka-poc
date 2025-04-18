@@ -1,0 +1,62 @@
+# Gradle
+.gradle
+build/
+!gradle/wrapper/gradle-wrapper.jar
+!**/src/main/**/build/
+!**/src/test/**/build/
+
+# IntelliJ IDEA
+.idea
+*.iws
+*.iml
+*.ipr
+out/
+!**/src/main/**/out/
+!**/src/test/**/out/
+
+# Eclipse / STS
+.apt_generated
+.classpath
+.factorypath
+.project
+.settings
+.springBeans
+.sts4-cache
+bin/
+!**/src/main/**/bin/
+!**/src/test/**/bin/
+
+# NetBeans
+/nbproject/private/
+/nbbuild/
+/dist/
+/nbdist/
+/.nb-gradle/
+
+# VS Code
+.vscode/
+
+# Frontend (Node / Vite)
+ui/frontend/node_modules/
+ui/frontend/dist/
+ui/frontend/.vite/
+ui/frontend/.eslintcache
+
+# System / tymczasowe
+*.log
+.DS_Store
+Thumbs.db
+
+# Docker
+**/.dockerignore
+**/Dockerfile
+docker-volume-data/
+.env
+
+/agent-gateway/build/
+/agent-gateway/out/
+/agent-gateway/.idea/
+/agent-gateway/.classpath
+/agent-gateway/.project
+
+*.zip
