@@ -1,0 +1,77 @@
+package pl.monify.agentgateway.communication.web.handler;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
+import pl.monify.agentgateway.communication.adapter.registry.RegisterAgentMessage;
+import pl.monify.agentgateway.communication.domain.model.AgentSession;
+import pl.monify.agentgateway.communication.domain.port.in.RegisterAgentUseCase;
+import pl.monify.agentgateway.communication.domain.port.out.MessageRateLimiterPort;
+import pl.monify.agentgateway.communication.exception.KafkaException;
+import pl.monify.agentgateway.communication.web.AgentMessageHandler;
+import reactor.core.publisher.Mono;
+
+public class RegisterHandler implements AgentMessageHandler {
+
+    private static final Logger log = LoggerFactory.getLogger(RegisterHandler.class);
+
+    private final ObjectMapper objectMapper;
+    private final MessageRateLimiterPort messageRateLimiterPort;
+    private final RegisterAgentUseCase registerAgent;
+
+    public RegisterHandler(ObjectMapper objectMapper,
+                           MessageRateLimiterPort messageRateLimiterPort,
+                           RegisterAgentUseCase registerAgent) {
+        this.objectMapper = objectMapper;
+        this.messageRateLimiterPort = messageRateLimiterPort;
+        this.registerAgent = registerAgent;
+    }
+
+    @Override
+    public String type() {
+        return "register";
+    }
+
+    @Override
+    public Mono<Void> handle(String json, AgentSession session) {
+        MDC.put("agentId", session.id());
+        MDC.put("teamId", session.teamId());
+
+        if (messageRateLimiterPort.isRateLimited(session.id())) {
+            log.warn("[WS] Rate limit exceeded for register from agent {}", session.id());
+            MDC.clear();
+            return session.sendText("{\"type\":\"error\",\"payload\":{\"message\":\"rate limit exceeded\"}}");
+        }
+
+        try {
+            RegisterAgentMessage msg = objectMapper.readValue(json, RegisterAgentMessage.class);
+
+            if (msg.payload() == null || msg.payload().action() == null || msg.payload().action().isBlank()) {
+                log.error("[WS] Invalid register message payload");
+                return session.sendText("{\"type\":\"error\",\"payload\":{\"message\":\"invalid payload\"}}");
+            }
+
+            registerAgent.register(
+                    session.teamId(),
+                    msg.payload().action(),
+                    session,
+                    msg.payload().inputSchema(),
+                    msg.payload().outputSchema()
+            );
+
+            return session.sendText("{\"type\":\"registered\"}");
+
+        } catch (KafkaException e) {
+            log.error("[WS] Kafka failure while registering agent", e);
+            return session.sendText("{\"type\":\"error\",\"payload\":{\"message\":\"internal Kafka error\"}}");
+
+        } catch (Exception e) {
+            log.error("[WS] Error during register handling", e);
+            return session.sendText("{\"type\":\"error\",\"payload\":{\"message\":\"unexpected error\"}}");
+
+        } finally {
+            MDC.clear();
+        }
+    }
+}

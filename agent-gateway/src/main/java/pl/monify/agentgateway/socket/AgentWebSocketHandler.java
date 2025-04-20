@@ -92,6 +92,13 @@ public class AgentWebSocketHandler implements WebSocketHandler {
             return session.close(new CloseStatus(4002, "Missing or invalid claims"));
         }
 
+        // Check if token is expired
+        Date expiration = claims.getExpiration();
+        if (expiration != null && expiration.before(new Date())) {
+            log.error("[WS] Token is expired for agent {}", agentId);
+            return session.close(new CloseStatus(4003, "Token expired"));
+        }
+
         AgentSession agentSession = new AgentSession(agentId, teamId, session, correlationId);
         agentRegistry.register(agentId, agentSession);
 

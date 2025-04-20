@@ -1,7 +1,7 @@
 package pl.monify.agentgateway.messaging.kafka
 
 import pl.monify.agentgateway.messaging.ActionExecutionRequestMessage
-import pl.monify.agentgateway.socket.AgentDispatcher
+import pl.monify.agentgateway.messaging.AgentDispatcher
 import spock.lang.Specification
 
 class ActionExecutionKafkaListenerSpec extends Specification {

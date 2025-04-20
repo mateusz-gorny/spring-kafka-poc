@@ -10,7 +10,7 @@ public record ActionExecutionResult(
 ) implements AgentMessage {
 
     public record Payload(
-            String status, // "SUCCESS" / "FAILURE"
+            String status,
             Map<String, Object> output,
             List<String> logs
     ) {}

@@ -60,3 +60,6 @@ docker-volume-data/
 /agent-gateway/.project
 
 *.zip
+
+agent-gateway/src/main/resources/application-local.properties
+agent-gateway/src/testIntegration/resources/application-test.properties

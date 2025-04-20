@@ -1,10 +1,10 @@
-package pl.monify.agentgateway.socket;
+package pl.monify.agentgateway.messaging;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
-import pl.monify.agentgateway.messaging.ActionExecutionRequest;
+import pl.monify.agentgateway.socket.ActionRegistry;
 
 @Component
 public class AgentDispatcher {

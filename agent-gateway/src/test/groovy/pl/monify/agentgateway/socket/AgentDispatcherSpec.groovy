@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.JsonProcessingException
 import com.fasterxml.jackson.databind.ObjectMapper
 import org.springframework.web.reactive.socket.WebSocketSession
 import pl.monify.agentgateway.messaging.ActionExecutionRequest
+import pl.monify.agentgateway.messaging.AgentDispatcher
 import pl.monify.agentgateway.testutil.MockAgentSession
 import reactor.core.publisher.Mono
 import spock.lang.Specification

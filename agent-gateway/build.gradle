@@ -19,14 +19,15 @@ repositories {
 }
 
 dependencies {
-    implementation 'org.springframework.boot:spring-boot-starter-webflux'
+    implementation 'org.springframework.boot:spring-boot-autoconfigure'
     implementation 'com.fasterxml.jackson.core:jackson-databind'
+    implementation 'org.springframework.boot:spring-boot-starter-webflux'
 
-    implementation 'io.jsonwebtoken:jjwt-api:0.12.3'
+    // Database dependencies
+    implementation 'org.springframework.boot:spring-boot-starter-data-mongodb-reactive'
+
     implementation 'org.springframework.kafka:spring-kafka'
     testImplementation 'org.springframework.kafka:spring-kafka-test'
-    runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.12.6'
-    runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.12.5'
 
     testImplementation 'org.apache.groovy:groovy-json'
     testImplementation 'com.squareup.okhttp3:okhttp:4.12.0'
@@ -34,8 +35,54 @@ dependencies {
     testImplementation 'org.spockframework:spock-core:2.3-groovy-4.0'
     testImplementation 'org.spockframework:spock-spring:2.3-groovy-4.0'
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
+
+    testImplementation 'org.springframework.boot:spring-boot-starter-actuator'
+
+    implementation 'io.jsonwebtoken:jjwt-api:0.12.3'
+    runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.12.6'
+    runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.12.5'
 }
 
-tasks.named('test') {
+sourceSets {
+    integrationTest {
+        java.srcDirs = ['src/testIntegration/java']
+        groovy.srcDirs = ['src/testIntegration/groovy']
+        resources.srcDirs = ['src/testIntegration/resources']
+        compileClasspath += sourceSets.main.output + sourceSets.test.output
+        runtimeClasspath += output + compileClasspath
+    }
+
+    e2eTest {
+        java.srcDirs = ['src/testE2e/java']
+        groovy.srcDirs = ['src/testE2e/groovy']
+        resources.srcDirs = ['src/testE2e/resources']
+        compileClasspath += sourceSets.main.output + sourceSets.test.output
+        runtimeClasspath += output + compileClasspath
+    }
+}
+
+configurations {
+    integrationTestImplementation.extendsFrom testImplementation
+    integrationTestRuntimeOnly.extendsFrom testRuntimeOnly
+
+    e2eTestImplementation.extendsFrom testImplementation
+    e2eTestRuntimeOnly.extendsFrom testRuntimeOnly
+}
+
+tasks.register("integrationTest", Test) {
+    description = "Runs integration tests"
+    group = "verification"
+    testClassesDirs = sourceSets.integrationTest.output.classesDirs
+    classpath = sourceSets.integrationTest.runtimeClasspath
+    shouldRunAfter(tasks.test)
+    useJUnitPlatform()
+}
+
+tasks.register("e2eTest", Test) {
+    description = "Runs end-to-end tests"
+    group = "verification"
+    testClassesDirs = sourceSets.e2eTest.output.classesDirs
+    classpath = sourceSets.e2eTest.runtimeClasspath
+    shouldRunAfter(tasks.integrationTest)
     useJUnitPlatform()
 }

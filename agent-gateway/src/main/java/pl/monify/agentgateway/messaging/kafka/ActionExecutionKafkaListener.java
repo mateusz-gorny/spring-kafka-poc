@@ -7,7 +7,7 @@ import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.stereotype.Component;
 import pl.monify.agentgateway.messaging.ActionExecutionRequest;
 import pl.monify.agentgateway.messaging.ActionExecutionRequestMessage;
-import pl.monify.agentgateway.socket.AgentDispatcher;
+import pl.monify.agentgateway.messaging.AgentDispatcher;
 
 @Component
 public class ActionExecutionKafkaListener {

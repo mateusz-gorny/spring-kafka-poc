@@ -19,10 +19,6 @@ public class WorkflowInstanceService {
         return repository.save(instance);
     }
 
-    public Optional<WorkflowInstance> getById(String id) {
-        return repository.findById(id);
-    }
-
     public Optional<WorkflowInstance> findByActionInstanceId(String actionInstanceId) {
         return repository.findAll().stream()
                 .filter(inst -> inst.getActions() != null &&
