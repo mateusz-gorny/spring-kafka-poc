@@ -15,6 +15,6 @@ services:
     deploy:
       replicas: 0
 
-#  agent-gateway:
-#    deploy:
-#      replicas: 0
+  agent-gateway:
+    deploy:
+      replicas: 0

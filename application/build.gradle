@@ -18,7 +18,6 @@ repositories {
 }
 
 dependencies {
-    implementation project(':modules:agents:send-email')
     implementation project(':modules:agents-registry')
     implementation project(':modules:credentials-store')
     implementation project(':modules:triggers')

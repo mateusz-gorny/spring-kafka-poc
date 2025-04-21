@@ -7,7 +7,6 @@ import org.slf4j.MDC;
 import pl.monify.agentgateway.communication.adapter.messaging.ActionExecutionResultMessage;
 import pl.monify.agentgateway.communication.domain.model.AgentSession;
 import pl.monify.agentgateway.communication.domain.port.in.HandleActionExecutionResultUseCase;
-import pl.monify.agentgateway.communication.domain.port.out.MessageRateLimiterPort;
 import pl.monify.agentgateway.communication.exception.KafkaException;
 import pl.monify.agentgateway.communication.web.AgentMessageHandler;
 import reactor.core.publisher.Mono;
@@ -17,14 +16,11 @@ public class ExecutionResultHandler implements AgentMessageHandler {
     private static final Logger log = LoggerFactory.getLogger(ExecutionResultHandler.class);
 
     private final ObjectMapper objectMapper;
-    private final MessageRateLimiterPort messageRateLimiterPort;
     private final HandleActionExecutionResultUseCase resultUseCase;
 
     public ExecutionResultHandler(ObjectMapper objectMapper,
-                                  MessageRateLimiterPort messageRateLimiterPort,
                                   HandleActionExecutionResultUseCase resultUseCase) {
         this.objectMapper = objectMapper;
-        this.messageRateLimiterPort = messageRateLimiterPort;
         this.resultUseCase = resultUseCase;
     }
 
@@ -35,17 +31,16 @@ public class ExecutionResultHandler implements AgentMessageHandler {
 
     @Override
     public Mono<Void> handle(String json, AgentSession session) {
-        MDC.put("agentId", session.id());
+        MDC.put("sessionId", session.id());
         MDC.put("teamId", session.teamId());
-
-        if (messageRateLimiterPort.isRateLimited(session.id())) {
-            log.warn("[WS] Rate limit exceeded for result from agent {}", session.id());
-            MDC.clear();
-            return session.sendText("{\"type\":\"error\",\"payload\":{\"message\":\"rate limit exceeded\"}}");
-        }
 
         try {
             ActionExecutionResultMessage result = objectMapper.readValue(json, ActionExecutionResultMessage.class);
+
+            if (result == null || result.payload() == null || result.correlationId() == null) {
+                log.error("[WS] Invalid result payload");
+                return session.sendText("{\"type\":\"error\",\"payload\":{\"message\":\"Invalid result payload\"}}");
+            }
 
             resultUseCase.handle(
                     result.correlationId(),

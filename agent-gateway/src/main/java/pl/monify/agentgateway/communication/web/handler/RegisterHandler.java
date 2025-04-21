@@ -7,7 +7,6 @@ import org.slf4j.MDC;
 import pl.monify.agentgateway.communication.adapter.registry.RegisterAgentMessage;
 import pl.monify.agentgateway.communication.domain.model.AgentSession;
 import pl.monify.agentgateway.communication.domain.port.in.RegisterAgentUseCase;
-import pl.monify.agentgateway.communication.domain.port.out.MessageRateLimiterPort;
 import pl.monify.agentgateway.communication.exception.KafkaException;
 import pl.monify.agentgateway.communication.web.AgentMessageHandler;
 import reactor.core.publisher.Mono;
@@ -17,14 +16,11 @@ public class RegisterHandler implements AgentMessageHandler {
     private static final Logger log = LoggerFactory.getLogger(RegisterHandler.class);
 
     private final ObjectMapper objectMapper;
-    private final MessageRateLimiterPort messageRateLimiterPort;
     private final RegisterAgentUseCase registerAgent;
 
     public RegisterHandler(ObjectMapper objectMapper,
-                           MessageRateLimiterPort messageRateLimiterPort,
                            RegisterAgentUseCase registerAgent) {
         this.objectMapper = objectMapper;
-        this.messageRateLimiterPort = messageRateLimiterPort;
         this.registerAgent = registerAgent;
     }
 
@@ -35,14 +31,8 @@ public class RegisterHandler implements AgentMessageHandler {
 
     @Override
     public Mono<Void> handle(String json, AgentSession session) {
-        MDC.put("agentId", session.id());
+        MDC.put("sessionId", session.id());
         MDC.put("teamId", session.teamId());
-
-        if (messageRateLimiterPort.isRateLimited(session.id())) {
-            log.warn("[WS] Rate limit exceeded for register from agent {}", session.id());
-            MDC.clear();
-            return session.sendText("{\"type\":\"error\",\"payload\":{\"message\":\"rate limit exceeded\"}}");
-        }
 
         try {
             RegisterAgentMessage msg = objectMapper.readValue(json, RegisterAgentMessage.class);

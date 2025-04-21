@@ -7,11 +7,11 @@ import org.springframework.web.reactive.socket.CloseStatus;
 import org.springframework.web.reactive.socket.WebSocketHandler;
 import org.springframework.web.reactive.socket.WebSocketSession;
 import pl.monify.agentgateway.communication.domain.model.AgentSession;
-import pl.monify.agentgateway.communication.domain.model.JwtAgentClaims;
-import pl.monify.agentgateway.communication.domain.port.out.ConnectionRateLimiterPort;
-import pl.monify.agentgateway.communication.domain.port.out.JwtTokenParserPort;
+import pl.monify.agentgateway.token.domain.model.JwtAgentClaims;
+import pl.monify.agentgateway.token.domain.port.in.JwtTokenParserPort;
 import pl.monify.agentgateway.communication.domain.port.out.RegisterAgentSessionPort;
 import pl.monify.agentgateway.communication.domain.port.out.UnregisterAgentSessionPort;
+import reactor.core.publisher.Mono;
 
 public class AgentWebSocketHandler implements WebSocketHandler {
 
@@ -20,25 +20,22 @@ public class AgentWebSocketHandler implements WebSocketHandler {
     private final JwtTokenParserPort jwtTokenParser;
     private final RegisterAgentSessionPort registerAgent;
     private final UnregisterAgentSessionPort unregisterAgent;
-    private final ConnectionRateLimiterPort connectionRateLimiterPort;
     private final AgentMessageDispatcher dispatcher;
 
     public AgentWebSocketHandler(
             JwtTokenParserPort jwtTokenParser,
             RegisterAgentSessionPort registerAgent,
             UnregisterAgentSessionPort unregisterAgent,
-            ConnectionRateLimiterPort connectionRateLimiterPort,
             AgentMessageDispatcher dispatcher
     ) {
         this.jwtTokenParser = jwtTokenParser;
         this.registerAgent = registerAgent;
         this.unregisterAgent = unregisterAgent;
-        this.connectionRateLimiterPort = connectionRateLimiterPort;
         this.dispatcher = dispatcher;
     }
 
     @Override
-    public reactor.core.publisher.Mono<Void> handle(WebSocketSession session) {
+    public Mono<Void> handle(WebSocketSession session) {
         String header = session.getHandshakeInfo().getHeaders().getFirst("Authorization");
         if (header == null || !header.startsWith("Bearer ")) {
             return session.close(new CloseStatus(4001, "Missing or invalid Authorization header"));
@@ -55,11 +52,6 @@ public class AgentWebSocketHandler implements WebSocketHandler {
         } catch (Exception e) {
             log.error("Unexpected error during JWT validation", e);
             return session.close(new CloseStatus(4003, "JWT parsing error"));
-        }
-
-        if (!connectionRateLimiterPort.allowConnection()) {
-            log.warn("Connection rejected: rate limit exceeded");
-            return session.close(new CloseStatus(1013, "Try again later"));
         }
 
         String agentId = claims.agentId();

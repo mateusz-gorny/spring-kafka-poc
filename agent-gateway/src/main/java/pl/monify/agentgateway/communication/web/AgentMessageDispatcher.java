@@ -1,5 +1,6 @@
 package pl.monify.agentgateway.communication.web;
 
+import com.fasterxml.jackson.core.JsonParseException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -34,9 +35,12 @@ public class AgentMessageDispatcher {
             }
 
             return handler.handle(json, session);
-        } catch (Exception e) {
+        } catch (JsonParseException e) {
             log.error("[WS] Failed to parse incoming message", e);
-            return session.sendText("{\"type\":\"error\",\"message\":\"bad request\"}");
+            return session.sendText("{\"type\":\"error\",\"message\":\"Failed to parse incoming message, check JSON format\"}");
+        } catch (Exception e) {
+            log.error("[WS] Failed to process request", e);
+            return session.sendText("{\"type\":\"error\",\"message\":\"Bad request\"}");
         }
     }
 }

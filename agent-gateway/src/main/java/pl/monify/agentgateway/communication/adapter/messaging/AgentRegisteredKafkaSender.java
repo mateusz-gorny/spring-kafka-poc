@@ -22,8 +22,8 @@ public class AgentRegisteredKafkaSender implements AgentRegisteredEventSenderPor
     @Override
     public void send(AgentRegisteredMessage message) {
         try {
-            kafkaTemplate.send(topic, message.agentId(), message);
-            log.info("[Kafka] Sent agent registration for agent {}", message.agentId());
+            kafkaTemplate.send(topic, message.sessionId(), message);
+            log.info("[Kafka] Sent agent registration for agent {}", message.sessionId());
         } catch (Exception e) {
             throw new KafkaException("Failed to send agent registration event", e);
         }

@@ -4,13 +4,14 @@ import com.fasterxml.jackson.databind.JsonNode;
 import org.springframework.stereotype.Component;
 import pl.monify.agentgateway.communication.domain.model.AgentSession;
 import pl.monify.agentgateway.communication.domain.port.out.ActionRegistryPort;
+import pl.monify.agentgateway.communication.domain.port.out.AgentSessionFinderPort;
 
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Component
-public class ActionRegistry implements ActionRegistryPort {
+public class ActionRegistry implements ActionRegistryPort, AgentSessionFinderPort {
 
     private final Map<String, RegisteredAction> registry = new ConcurrentHashMap<>();
 

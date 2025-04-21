@@ -189,8 +189,6 @@ When an error occurs, the gateway will send an error message with a descriptive 
 
 1. **Implement Reconnection Logic**: Agents should implement reconnection logic with exponential backoff to handle temporary disconnections.
 
-2. **Handle Rate Limiting**: Be prepared to handle rate limiting errors by implementing appropriate backoff strategies.
-
 3. **Correlation IDs**: Always include correlation IDs in your messages to facilitate debugging and tracing.
 
 4. **Validate Messages**: Validate all messages against the expected schema before sending them to avoid errors.
