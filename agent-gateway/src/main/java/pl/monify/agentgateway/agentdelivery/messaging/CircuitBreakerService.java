@@ -1,4 +1,4 @@
-package pl.monify.agentgateway.messaging.kafka;
+package pl.monify.agentgateway.agentdelivery.messaging;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

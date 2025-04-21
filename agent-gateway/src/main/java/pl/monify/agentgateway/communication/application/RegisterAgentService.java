@@ -1,6 +1,8 @@
 package pl.monify.agentgateway.communication.application;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import pl.monify.agentgateway.communication.domain.model.AgentRegisteredMessage;
 import pl.monify.agentgateway.communication.domain.model.AgentSession;
 import pl.monify.agentgateway.communication.domain.port.in.RegisterAgentUseCase;
@@ -9,6 +11,7 @@ import pl.monify.agentgateway.communication.domain.port.out.AgentRegisteredEvent
 
 public class RegisterAgentService implements RegisterAgentUseCase {
 
+    private static final Logger log = LoggerFactory.getLogger(RegisterAgentService.class);
     private final ActionRegistryPort actionRegistry;
     private final AgentRegisteredEventSenderPort eventSender;
 
@@ -20,9 +23,11 @@ public class RegisterAgentService implements RegisterAgentUseCase {
 
     @Override
     public void register(String teamId, String action, AgentSession session, JsonNode inputSchema, JsonNode outputSchema) {
+        log.info("[WS] Received register message for agent {} for team {}", session.id(), teamId);
         actionRegistry.register(teamId, action, session, inputSchema, outputSchema);
 
         AgentRegisteredMessage event = new AgentRegisteredMessage(action, session.id(), teamId, inputSchema, outputSchema);
+        log.info("[WS] Sending agent registered event for agent {} for team {}", session.id(), teamId);
         eventSender.send(event);
     }
 }

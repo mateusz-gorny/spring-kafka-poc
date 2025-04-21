@@ -1,6 +1,8 @@
 package pl.monify.agentgateway.token.adapter;
 
 import io.jsonwebtoken.Jwts;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import pl.monify.agentgateway.token.domain.model.JwtAgentClaims;
 import pl.monify.agentgateway.token.domain.port.out.JwtTokenGeneratorPort;
 import pl.monify.agentgateway.token.domain.port.out.JwtTokenKeyProviderPort;
@@ -12,6 +14,7 @@ import java.util.Date;
 
 public class JwtTokenGeneratorAdapter implements JwtTokenGeneratorPort {
 
+    private static final Logger log = LoggerFactory.getLogger(JwtTokenGeneratorAdapter.class);
     private final JwtTokenKeyProviderPort keyProvider;
     private final String issuer;
     private final long tokenTtlSeconds;
@@ -24,6 +27,7 @@ public class JwtTokenGeneratorAdapter implements JwtTokenGeneratorPort {
 
     @Override
     public String generate(JwtAgentClaims claims) {
+        log.info("Generating token for agent {} for team {} with actions {}", claims.agentId(), claims.teamId(), claims.action());
         String keyId = claims.agentId();
 
         Key key = keyProvider.resolveKey(keyId);
@@ -35,6 +39,7 @@ public class JwtTokenGeneratorAdapter implements JwtTokenGeneratorPort {
         Instant now = Instant.now();
         Instant exp = now.plusSeconds(tokenTtlSeconds);
 
+        log.info("Building JWTS");
         return Jwts.builder()
                 .header()
                 .keyId(keyId)

@@ -36,8 +36,10 @@ public class AgentWebSocketHandler implements WebSocketHandler {
 
     @Override
     public Mono<Void> handle(WebSocketSession session) {
+        log.info("[WS] New agent connection from {}", session.getHandshakeInfo().getRemoteAddress());
         String header = session.getHandshakeInfo().getHeaders().getFirst("Authorization");
         if (header == null || !header.startsWith("Bearer ")) {
+            log.error("Missing or invalid Authorization header");
             return session.close(new CloseStatus(4001, "Missing or invalid Authorization header"));
         }
 
@@ -45,9 +47,10 @@ public class AgentWebSocketHandler implements WebSocketHandler {
         JwtAgentClaims claims;
 
         try {
+            log.info("[WS] Validating JWT token");
             claims = jwtTokenParser.parse(token);
         } catch (IllegalArgumentException e) {
-            log.warn("JWT validation failed: {}", e.getMessage());
+            log.error("JWT validation failed: {}", e.getMessage());
             return session.close(new CloseStatus(4002, "Invalid JWT token"));
         } catch (Exception e) {
             log.error("Unexpected error during JWT validation", e);
@@ -57,8 +60,10 @@ public class AgentWebSocketHandler implements WebSocketHandler {
         String agentId = claims.agentId();
         MDC.put("agent", agentId);
         AgentSession agentSession = new AgentSession(session, claims.teamId(), claims.action());
+        log.info("[WS] Agent session created for agent {}", agentId);
 
         registerAgent.register(agentId, agentSession);
+        log.info("[WS] Agent session registered for agent {}", agentId);
 
         return session.receive()
                 .doFinally(signalType -> {

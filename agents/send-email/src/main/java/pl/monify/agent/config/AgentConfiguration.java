@@ -7,14 +7,17 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import pl.monify.agent.auth.TokenClient;
 import pl.monify.agent.gateway.GatewayClient;
-import pl.monify.agent.task.TaskExecutor;
+import pl.monify.agent.registration.AgentRegistrationClient;
+import pl.monify.agent.task.AgentTaskExecutor;
+import pl.monify.agent.ws.SessionRegistry;
+import pl.monify.agent.ws.WebSocketListenerImpl;
 
 @Configuration
 @EnableConfigurationProperties(AgentProperties.class)
 public class AgentConfiguration {
 
     @Bean
-    public OkHttpClient httpClient() {
+    public OkHttpClient client() {
         return new OkHttpClient();
     }
 
@@ -23,22 +26,31 @@ public class AgentConfiguration {
         return new TokenClient(client, mapper, props);
     }
 
-    @Bean(name = "agentTaskExecutor")
-    public TaskExecutor taskExecutor() {
-        return new TaskExecutor();
+    @Bean
+    public WebSocketListenerImpl wsListener(ObjectMapper mapper, SessionRegistry registry, AgentTaskExecutor exec, AgentRegistrationClient registrationClient) {
+        return new WebSocketListenerImpl(mapper, registry, exec, registrationClient);
     }
 
-    @Bean(initMethod = "connect")
+    @Bean
     public GatewayClient gatewayClient(AgentProperties props,
-                                       TokenClient tokenClient,
                                        OkHttpClient client,
-                                       ObjectMapper mapper,
-                                       TaskExecutor taskExecutor) {
-        return new GatewayClient(props, tokenClient, client, mapper, taskExecutor);
+                                       TokenClient tokenClient,
+                                       WebSocketListenerImpl listener) {
+        return new GatewayClient(props, client, tokenClient, listener);
+    }
+
+    @Bean
+    public AgentTaskExecutor agentTaskExecutor() {
+        return new AgentTaskExecutor();
     }
 
     @Bean
     public ObjectMapper objectMapper() {
         return new ObjectMapper();
+    }
+
+    @Bean
+    public AgentRegistrationClient agentRegistrationClient(AgentProperties props, ObjectMapper mapper, SessionRegistry registry) {
+        return new AgentRegistrationClient(props, mapper, registry);
     }
 }

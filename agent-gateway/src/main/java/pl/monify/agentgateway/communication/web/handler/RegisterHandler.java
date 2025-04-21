@@ -31,25 +31,28 @@ public class RegisterHandler implements AgentMessageHandler {
 
     @Override
     public Mono<Void> handle(String json, AgentSession session) {
+        log.info("[WS] Received register message from agent {}", session.id());
         MDC.put("sessionId", session.id());
         MDC.put("teamId", session.teamId());
 
         try {
             RegisterAgentMessage msg = objectMapper.readValue(json, RegisterAgentMessage.class);
 
-            if (msg.payload() == null || msg.payload().action() == null || msg.payload().action().isBlank()) {
+            if (msg.action() == null || msg.action().isBlank()) {
                 log.error("[WS] Invalid register message payload");
                 return session.sendText("{\"type\":\"error\",\"payload\":{\"message\":\"invalid payload\"}}");
             }
+            log.info("[WS] Registering agent {} for team {}", msg.action(), session.teamId());
 
             registerAgent.register(
                     session.teamId(),
-                    msg.payload().action(),
+                    msg.action(),
                     session,
-                    msg.payload().inputSchema(),
-                    msg.payload().outputSchema()
+                    msg.inputSchema(),
+                    msg.outputSchema()
             );
 
+            log.info("[WS] Agent registered for team {}", session.teamId());
             return session.sendText("{\"type\":\"registered\"}");
 
         } catch (KafkaException e) {

@@ -25,12 +25,14 @@ public class PingHandler implements AgentMessageHandler {
 
     @Override
     public Mono<Void> handle(String json, AgentSession session) {
+        log.info("[WS] Received ping message from agent {}", session.id());
         MDC.put("sessionId", session.id());
         MDC.put("teamId", session.teamId());
 
-        log.debug("[WS] Received ping from agent {}", session.id());
+        log.info("[WS] Received ping from agent {}", session.id());
         pingAgentUseCase.pong(session);
         MDC.clear();
+        log.info("[WS] Pong sent to agent {}", session.id());
         return Mono.empty();
     }
 }

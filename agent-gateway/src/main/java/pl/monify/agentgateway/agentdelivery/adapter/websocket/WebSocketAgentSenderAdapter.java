@@ -26,6 +26,7 @@ public class WebSocketAgentSenderAdapter implements AgentSenderPort {
 
     @Override
     public void send(ActionExecutionRequestMessage request) {
+        log.info("[WS] Sending action execution request to agent {}", request.teamId());
         var action = agentSessionFinderPort.find(request.teamId(), request.action());
         if (action.isPresent()) {
             try {
@@ -36,6 +37,8 @@ public class WebSocketAgentSenderAdapter implements AgentSenderPort {
                 MDC.put("correlationId", request.correlationId());
                 MDC.put("sessionId", registeredSession.id());
                 MDC.put("teamId", request.teamId());
+
+                log.info("[WS] Sending to {}: {}", registeredSession.id(), request.toString());
 
                 String json = objectMapper.writeValueAsString(Map.of(
                         "type", "ActionExecutionRequest",

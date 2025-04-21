@@ -6,7 +6,6 @@ import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.apache.kafka.common.serialization.StringSerializer;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
@@ -17,15 +16,15 @@ import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.core.ProducerFactory;
 import org.springframework.kafka.support.serializer.JsonDeserializer;
 import org.springframework.kafka.support.serializer.JsonSerializer;
-import pl.monify.agentgateway.config.KafkaProperties;
 import pl.monify.agentgateway.agentdelivery.domain.model.ActionExecutionRequestMessage;
+import pl.monify.agentgateway.communication.adapter.messaging.ActionResultKafkaSender;
+import pl.monify.agentgateway.communication.adapter.messaging.AgentRegisteredKafkaSender;
+import pl.monify.agentgateway.communication.domain.port.out.ActionResultSenderPort;
+import pl.monify.agentgateway.communication.domain.port.out.AgentRegisteredEventSenderPort;
 
 import java.util.HashMap;
 import java.util.Map;
 
-@EnableConfigurationProperties({
-        KafkaProperties.class
-})
 @Configuration
 public class KafkaConfiguration {
     @Value("${monify.kafka.bootstrap-servers}")
@@ -76,5 +75,21 @@ public class KafkaConfiguration {
     @Bean
     public KafkaTemplate<String, Object> kafkaTemplate(ProducerFactory<String, Object> kafkaProducerFactory) {
         return new KafkaTemplate<>(kafkaProducerFactory);
+    }
+
+    @Bean
+    public AgentRegisteredEventSenderPort agentRegisteredSender(
+            KafkaTemplate<String, Object> kafkaTemplate,
+            @Value("${monify.kafka.agent-registration-topic}") String topic
+    ) {
+        return new AgentRegisteredKafkaSender(kafkaTemplate, topic);
+    }
+
+    @Bean
+    public ActionResultSenderPort actionResultSender(
+            KafkaTemplate<String, Object> kafkaTemplate,
+            @Value("${monify.kafka.action-result-topic}") String topic
+    ) {
+        return new ActionResultKafkaSender(kafkaTemplate, topic);
     }
 }

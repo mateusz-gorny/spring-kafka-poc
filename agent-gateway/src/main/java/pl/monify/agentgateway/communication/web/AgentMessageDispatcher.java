@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import pl.monify.agentgateway.communication.domain.model.AgentSession;
+import reactor.core.publisher.Mono;
 
 import java.util.HashMap;
 import java.util.List;
@@ -24,13 +25,15 @@ public class AgentMessageDispatcher {
         }
     }
 
-    public reactor.core.publisher.Mono<Void> dispatch(AgentSession session, String json) {
+    public Mono<Void> dispatch(AgentSession session, String json) {
+        log.info("[WS] Received message from agent {}", session.id());
         try {
             BaseAgentMessage base = objectMapper.readValue(json, BaseAgentMessage.class);
             AgentMessageHandler handler = handlers.get(base.type());
+            log.info("[WS] Dispatching message of type {}", base.type());
 
             if (handler == null) {
-                log.warn("[WS] Unknown message type: {}", base.type());
+                log.error("[WS] Unknown message type: {}", base.type());
                 return session.sendText("{\"type\":\"error\",\"message\":\"unknown type\"}");
             }
 

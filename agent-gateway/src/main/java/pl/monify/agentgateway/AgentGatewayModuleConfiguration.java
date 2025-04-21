@@ -7,7 +7,6 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
 import org.springframework.data.mongodb.repository.config.EnableReactiveMongoRepositories;
 import pl.monify.agentgateway.agentdelivery.AgentDeliveryPortsConfiguration;
-import pl.monify.agentgateway.communication.CommunicationPortsConfiguration;
 import pl.monify.agentgateway.config.JwtProperties;
 import pl.monify.agentgateway.config.WebSocketProperties;
 import pl.monify.agentgateway.token.TokenConfiguration;
@@ -18,7 +17,6 @@ import pl.monify.agentgateway.token.TokenConfiguration;
         WebSocketProperties.class
 })
 @Import({
-        CommunicationPortsConfiguration.class,
         AgentDeliveryPortsConfiguration.class,
         TokenConfiguration.class,
 })

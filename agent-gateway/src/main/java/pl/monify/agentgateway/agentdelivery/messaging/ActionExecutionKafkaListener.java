@@ -1,5 +1,7 @@
 package pl.monify.agentgateway.agentdelivery.messaging;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.messaging.handler.annotation.Payload;
 import pl.monify.agentgateway.agentdelivery.domain.application.AgentDispatcher;
@@ -9,6 +11,7 @@ import java.util.Map;
 
 public class ActionExecutionKafkaListener {
 
+    private static final Logger log = LoggerFactory.getLogger(ActionExecutionKafkaListener.class);
     private final AgentDispatcher dispatcher;
 
     public ActionExecutionKafkaListener(AgentDispatcher dispatcher) {
@@ -17,17 +20,11 @@ public class ActionExecutionKafkaListener {
 
     @KafkaListener(
             topics = "${monify.kafka.agent-execution-topic}",
-            groupId = "agent.gateway.consumer.group",
+            groupId = "${monify.kafka.group-id}",
             containerFactory = "kafkaListenerContainerFactory"
     )
-    public void handle(@Payload Map<String, Object> message) {
-        var request = new ActionExecutionRequestMessage(
-                (String) message.get("workflowInstanceId"),
-                (String) message.get("action"),
-                (String) message.get("teamId"),
-                (String) message.get("correlationId"),
-                (Map<String, Object>) message.get("input")
-        );
-        dispatcher.dispatch(request);
+    public void handle(@Payload ActionExecutionRequestMessage requestMessage) {
+        log.info("[Kafka] Received message from agent {}", requestMessage.correlationId());
+        dispatcher.dispatch(requestMessage);
     }
 }

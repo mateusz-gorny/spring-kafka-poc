@@ -31,17 +31,20 @@ public class ExecutionResultHandler implements AgentMessageHandler {
 
     @Override
     public Mono<Void> handle(String json, AgentSession session) {
+        log.info("[WS] Received result message from agent {}", session.id());
         MDC.put("sessionId", session.id());
         MDC.put("teamId", session.teamId());
 
         try {
             ActionExecutionResultMessage result = objectMapper.readValue(json, ActionExecutionResultMessage.class);
+            log.info("[WS] Processing result...");
 
             if (result == null || result.payload() == null || result.correlationId() == null) {
                 log.error("[WS] Invalid result payload");
                 return session.sendText("{\"type\":\"error\",\"payload\":{\"message\":\"Invalid result payload\"}}");
             }
 
+            log.info("[WS] Result received for actionInstanceId {}", result.correlationId());
             resultUseCase.handle(
                     result.correlationId(),
                     result.payload().status(),
@@ -49,6 +52,7 @@ public class ExecutionResultHandler implements AgentMessageHandler {
                     result.payload().logs()
             );
 
+            log.info("[WS] Result processed for actionInstanceId {}", result.correlationId());
             return Mono.empty();
 
         } catch (KafkaException e) {

@@ -87,7 +87,3 @@ tasks.register("e2eTest", Test) {
     shouldRunAfter(tasks.integrationTest)
     useJUnitPlatform()
 }
-
-bootRun {
-    systemProperty "spring.profiles.active", "local"
-}

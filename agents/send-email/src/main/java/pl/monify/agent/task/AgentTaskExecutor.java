@@ -3,9 +3,9 @@ package pl.monify.agent.task;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class TaskExecutor {
+public class AgentTaskExecutor {
 
-    private static final Logger log = LoggerFactory.getLogger(TaskExecutor.class);
+    private static final Logger log = LoggerFactory.getLogger(AgentTaskExecutor.class);
 
     public void execute() {
         try {
