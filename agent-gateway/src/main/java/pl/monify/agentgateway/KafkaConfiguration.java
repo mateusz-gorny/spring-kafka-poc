@@ -18,9 +18,11 @@ import org.springframework.kafka.support.serializer.JsonDeserializer;
 import org.springframework.kafka.support.serializer.JsonSerializer;
 import pl.monify.agentgateway.agentdelivery.domain.model.ActionExecutionRequestMessage;
 import pl.monify.agentgateway.communication.adapter.messaging.ActionResultKafkaSender;
+import pl.monify.agentgateway.communication.adapter.messaging.AgentPingKafkaSender;
 import pl.monify.agentgateway.communication.adapter.messaging.AgentRegisteredKafkaSender;
 import pl.monify.agentgateway.communication.domain.port.out.ActionResultSenderPort;
 import pl.monify.agentgateway.communication.domain.port.out.AgentRegisteredEventSenderPort;
+import pl.monify.agentgateway.token.domain.event.AgentCreatedEvent;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -36,14 +38,16 @@ public class KafkaConfiguration {
     @Value("${monify.kafka.auto-offset-reset:earliest}")
     private String kafkaOffsetReset;
 
-    @Bean
-    public ConsumerFactory<String, ActionExecutionRequestMessage> kafkaConsumerFactory(ObjectMapper objectMapper) {
-        JsonDeserializer<ActionExecutionRequestMessage> deserializer =
-                new JsonDeserializer<>(ActionExecutionRequestMessage.class, objectMapper);
+    private <T> ConsumerFactory<String, T> buildConsumerFactory(Class<T> clazz, ObjectMapper objectMapper, String trustedPackage) {
+        JsonDeserializer<T> deserializer =
+                new JsonDeserializer<>(clazz, objectMapper);
         deserializer.addTrustedPackages(
                 "pl.monify",
+                trustedPackage,
                 "java.util"
         );
+        deserializer.setRemoveTypeHeaders(true);
+        deserializer.setUseTypeMapperForKey(false);
 
         Map<String, Object> props = new HashMap<>();
         props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, kafkaBootstrapServers);
@@ -53,14 +57,34 @@ public class KafkaConfiguration {
         return new DefaultKafkaConsumerFactory<>(props, new StringDeserializer(), deserializer);
     }
 
+    private <T> ConcurrentKafkaListenerContainerFactory<String, T> buildListenerFactory(ConsumerFactory<String, T> factory) {
+        ConcurrentKafkaListenerContainerFactory<String, T> listenerFactory = new ConcurrentKafkaListenerContainerFactory<>();
+        listenerFactory.setConsumerFactory(factory);
+        return listenerFactory;
+    }
+
     @Bean
-    public ConcurrentKafkaListenerContainerFactory<String, ActionExecutionRequestMessage> kafkaListenerContainerFactory(
+    public ConsumerFactory<String, ActionExecutionRequestMessage> kafkaActionExecutionConsumerFactory(ObjectMapper objectMapper) {
+        return buildConsumerFactory(ActionExecutionRequestMessage.class, objectMapper, "pl.monify.agentgateway.agentdelivery.domain.model");
+    }
+
+    @Bean
+    public ConcurrentKafkaListenerContainerFactory<String, ActionExecutionRequestMessage> kafkaActionExecutionListenerContainerFactory(
             ConsumerFactory<String, ActionExecutionRequestMessage> kafkaConsumerFactory
     ) {
-        ConcurrentKafkaListenerContainerFactory<String, ActionExecutionRequestMessage> factory =
-                new ConcurrentKafkaListenerContainerFactory<>();
-        factory.setConsumerFactory(kafkaConsumerFactory);
-        return factory;
+        return buildListenerFactory(kafkaConsumerFactory);
+    }
+
+    @Bean
+    public ConsumerFactory<String, AgentCreatedEvent> kafkaAgentCreatedEventConsumerFactory(ObjectMapper objectMapper) {
+        return buildConsumerFactory(AgentCreatedEvent.class, objectMapper, "pl.monify.agentgateway.token.domain.event");
+    }
+
+    @Bean
+    public ConcurrentKafkaListenerContainerFactory<String, AgentCreatedEvent> kafkaAgentCreatedEventListenerContainerFactory(
+            ConsumerFactory<String, AgentCreatedEvent> kafkaConsumerFactory
+    ) {
+        return buildListenerFactory(kafkaConsumerFactory);
     }
 
     @Bean
@@ -69,7 +93,11 @@ public class KafkaConfiguration {
         props.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, kafkaBootstrapServers);
         props.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
         props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, JsonSerializer.class);
-        return new DefaultKafkaProducerFactory<>(props, new StringSerializer(), new JsonSerializer<>(objectMapper));
+
+        JsonSerializer<Object> serializer = new JsonSerializer<>(objectMapper);
+        serializer.setAddTypeInfo(false);
+
+        return new DefaultKafkaProducerFactory<>(props, new StringSerializer(), serializer);
     }
 
     @Bean
@@ -83,6 +111,14 @@ public class KafkaConfiguration {
             @Value("${monify.kafka.agent-registration-topic}") String topic
     ) {
         return new AgentRegisteredKafkaSender(kafkaTemplate, topic);
+    }
+
+    @Bean
+    public AgentPingKafkaSender agentPingKafkaSender(
+            KafkaTemplate<String, Object> kafkaTemplate,
+            @Value("${monify.kafka.agent-ping-topic}") String topic
+    ) {
+        return new AgentPingKafkaSender(kafkaTemplate, topic);
     }
 
     @Bean

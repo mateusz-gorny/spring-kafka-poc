@@ -5,6 +5,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 import pl.monify.agentgateway.communication.adapter.registry.RegisterAgentMessage;
+import pl.monify.agentgateway.communication.domain.model.AgentRegisterModel;
 import pl.monify.agentgateway.communication.domain.model.AgentSession;
 import pl.monify.agentgateway.communication.domain.port.in.RegisterAgentUseCase;
 import pl.monify.agentgateway.communication.exception.KafkaException;
@@ -44,13 +45,14 @@ public class RegisterHandler implements AgentMessageHandler {
             }
             log.info("[WS] Registering agent {} for team {}", msg.action(), session.teamId());
 
-            registerAgent.register(
-                    session.teamId(),
+            registerAgent.register(new AgentRegisterModel(
+                    msg.agentId(),
+                    msg.teamId(),
                     msg.action(),
                     session,
                     msg.inputSchema(),
                     msg.outputSchema()
-            );
+            ));
 
             log.info("[WS] Agent registered for team {}", session.teamId());
             return session.sendText("{\"type\":\"registered\"}");

@@ -1,118 +1,177 @@
-import React, {useEffect, useState} from "react";
-import {useNavigate, useParams} from "react-router-dom";
-import axios from "../api/api";
-import {useAuth} from "../auth/AuthContext";
+import { useEffect, useState } from "react";
+import { getWorkflowDefinition, getAvailableActions, updateWorkflow } from "../api/api";
+import ActionSidebar from "../components/ActionSidebar";
+import WorkflowCanvas from "../components/WorkflowCanvas";
+import InputDialog from "../components/InputDialog";
+import { useParams, useNavigate } from "react-router-dom";
+
+interface ActionInfoDto {
+    name: string;
+    teamId: string;
+    inputSchema: Record<string, any>;
+    outputSchema: Record<string, any>;
+}
+
+interface NodeInstance {
+    id: string;
+    action: ActionInfoDto;
+    inputs: Record<string, string>;
+}
 
 export default function WorkflowEdit() {
-    const {authorities} = useAuth();
-    const {id} = useParams();
+    const { id } = useParams<{ id: string }>();
+    const [availableActions, setAvailableActions] = useState<ActionInfoDto[]>([]);
+    const [nodes, setNodes] = useState<NodeInstance[]>([]);
+    const [inputEdit, setInputEdit] = useState<{ nodeId: string; inputKey: string } | null>(null);
+    const [dialogOpen, setDialogOpen] = useState(false);
+    const [error, setError] = useState<string | null>(null);
     const navigate = useNavigate();
 
-    const canEdit = authorities?.includes("WORKFLOW_ADMIN");
-
-    const [name, setName] = useState("");
-    const [triggers, setTriggers] = useState([]);
-    const [credentials, setCredentials] = useState([]);
-    const [selectedTriggers, setSelectedTriggers] = useState<string[]>([]);
-    const [selectedCredentials, setSelectedCredentials] = useState<string[]>([]);
-    const [actions, setActions] = useState<any[]>([]);
-
     useEffect(() => {
-        if (!canEdit || !id) return;
+        if (id) {
+            loadWorkflow(id);
+        }
+        getAvailableActions()
+            .then(setAvailableActions)
+            .catch(() => setError("Failed to load actions"));
+    }, [id]);
 
-        axios.get(`/workflows/${id}`).then((res) => {
-            const wf = res.data;
-            setName(wf.name);
-            setSelectedTriggers(wf.triggerIds || []);
-            setSelectedCredentials(wf.credentialIds || []);
-            setActions(wf.actions || []);
-        });
+    const loadWorkflow = async (id: string) => {
+        try {
+            const data = await getWorkflowDefinition(id);
+            const transitions = data.transitions || {};
+            const loadedNodes: NodeInstance[] = [];
 
-        axios.get("/triggers").then((res) => setTriggers(res.data));
-        axios.get("/credentials").then((res) => setCredentials(res.data));
-    }, [canEdit, id]);
+            const visited = new Set<string>();
+            let currentActionName = transitions["start"]?.[0]?.actionName;
 
-    const submit = () => {
-        axios
-            .put(`/workflows/${id}`, {
-                name,
-                status: "ACTIVE",
-                triggerIds: selectedTriggers,
-                credentialIds: selectedCredentials,
-                actions,
-            })
-            .then(() => navigate("/workflows"));
+            while (currentActionName && !visited.has(currentActionName)) {
+                const action = availableActions.find(a => a.name === currentActionName);
+                if (!action) break;
+                const transition = transitions[currentActionName] || [];
+                const inputs = transition[0]?.outputToInputMapping || {};
+                loadedNodes.push({
+                    id: crypto.randomUUID(),
+                    action,
+                    inputs,
+                });
+                visited.add(currentActionName);
+                currentActionName = transition[0]?.actionName;
+            }
+
+            setNodes(loadedNodes);
+        } catch {
+            setError("Failed to load workflow");
+        }
     };
 
-    if (!canEdit) {
-        return <div className="p-6 text-red-600">Access denied</div>;
-    }
+    const addAction = (action: ActionInfoDto) => {
+        const id = crypto.randomUUID();
+        setNodes((prev) => [...prev, { id, action, inputs: {} }]);
+    };
+
+    const removeAction = (id: string) => {
+        setNodes((prev) => prev.filter((node) => node.id !== id));
+    };
+
+    const openInputDialog = (nodeId: string, inputKey: string) => {
+        setInputEdit({ nodeId, inputKey });
+        setDialogOpen(true);
+    };
+
+    const updateInput = (value: string) => {
+        if (!inputEdit) return;
+        setNodes((prev) =>
+            prev.map((node) => {
+                if (node.id === inputEdit.nodeId) {
+                    return {
+                        ...node,
+                        inputs: {
+                            ...node.inputs,
+                            [inputEdit.inputKey]: value,
+                        },
+                    };
+                }
+                return node;
+            })
+        );
+        setDialogOpen(false);
+    };
+
+    const handleUpdate = async () => {
+        if (!id) return;
+        if (nodes.length === 0) {
+            setError("Add at least one action to the workflow.");
+            return;
+        }
+
+        const transitions: Record<string, any[]> = {};
+
+        if (nodes.length > 0) {
+            transitions["start"] = [
+                { actionName: nodes[0].action.name, outputToInputMapping: nodes[0].inputs }
+            ];
+        }
+
+        for (let i = 0; i < nodes.length; i++) {
+            const current = nodes[i];
+            const next = nodes[i + 1];
+            if (next) {
+                transitions[current.action.name] = [
+                    { actionName: next.action.name, outputToInputMapping: next.inputs }
+                ];
+            } else {
+                transitions[current.action.name] = [];
+            }
+        }
+
+        try {
+            await updateWorkflow(id, { transitions });
+            navigate("/workflows");
+        } catch {
+            setError("Failed to update workflow");
+        }
+    };
+
+    const buildAvailableOutputs = (currentNodeIndex: number) => {
+        return nodes
+            .slice(0, currentNodeIndex)
+            .flatMap((node, idx) =>
+                Object.keys(node.action.outputSchema?.properties || {}).map((outputKey) => ({
+                    nodeId: node.id,
+                    actionName: node.action.name,
+                    outputKey,
+                    index: idx,
+                }))
+            );
+    };
 
     return (
-        <div className="p-6 max-w-3xl mx-auto">
-            <h1 className="text-2xl font-bold mb-4">Edit Workflow</h1>
-
-            <label className="block mb-2 font-medium">Workflow name</label>
-            <input
-                className="border px-3 py-2 rounded w-full mb-4"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-            />
-
-            <div className="mb-4">
-                <label className="block font-semibold mb-1">Triggers</label>
-                <select
-                    multiple
-                    className="border px-3 py-2 rounded w-full h-32"
-                    value={selectedTriggers}
-                    onChange={(e) => {
-                        const values = Array.from(e.target.selectedOptions).map((o) => o.value);
-                        setSelectedTriggers(values);
-                    }}
-                >
-                    {triggers.map((t: any) => (
-                        <option key={t.id} value={t.id}>
-                            {t.name} ({t.type})
-                        </option>
-                    ))}
-                </select>
+        <div className="flex h-screen">
+            <div className="flex-1 overflow-auto p-4">
+                <WorkflowCanvas nodes={nodes} onRemove={removeAction} onEditInput={openInputDialog} />
+                <div className="mt-6">
+                    <button
+                        onClick={handleUpdate}
+                        className="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-6 rounded"
+                    >
+                        Update Workflow
+                    </button>
+                </div>
             </div>
-
-            <div className="mb-6">
-                <label className="block font-semibold mb-1">Credentials</label>
-                <select
-                    multiple
-                    className="border px-3 py-2 rounded w-full h-32"
-                    value={selectedCredentials}
-                    onChange={(e) => {
-                        const values = Array.from(e.target.selectedOptions).map((o) => o.value);
-                        setSelectedCredentials(values);
-                    }}
-                >
-                    {credentials.map((c: any) => (
-                        <option key={c.id} value={c.id}>
-                            {c.name} ({c.type})
-                        </option>
-                    ))}
-                </select>
+            <div className="w-64 border-l p-4 overflow-auto">
+                <ActionSidebar actions={availableActions} onAdd={addAction} />
             </div>
-
-            <div className="mb-6">
-                <h2 className="text-lg font-semibold">Actions</h2>
-                {actions.map((a, i) => (
-                    <div key={i} className="border rounded mb-3 p-3 bg-gray-50">
-                        <div className="font-medium">{a.name} ({a.type})</div>
-                        <pre className="text-sm text-gray-700 mt-1">{JSON.stringify(a.input, null, 2)}</pre>
-                    </div>
-                ))}
-            </div>
-
-            <button
-                onClick={submit}
-                className="bg-green-600 text-white px-6 py-2 rounded hover:bg-green-700"
-            >
-                Save Changes
-            </button>
+            {dialogOpen && inputEdit && (
+                <InputDialog
+                    onSave={updateInput}
+                    onClose={() => setDialogOpen(false)}
+                    nodeId={inputEdit.nodeId}
+                    inputKey={inputEdit.inputKey}
+                    outputs={buildAvailableOutputs(nodes.findIndex((n) => n.id === inputEdit.nodeId))}
+                />
+            )}
+            {error && <div className="p-4 text-red-600">{error}</div>}
         </div>
     );
 }

@@ -1,152 +1,170 @@
-import React, {useEffect, useState} from "react";
-import {useNavigate, useParams} from "react-router-dom";
-import axios from "../api/api";
-import {useAuth} from "../auth/AuthContext";
-import DeleteWorkflowModal from "../components/DeleteWorkflowModal";
+import { useEffect, useState } from "react";
+import { getWorkflowDefinition, getWorkflowInstancesByDefinition } from "../api/api";
+import { useParams, useNavigate } from "react-router-dom";
+import WorkflowNodeReadonly from "../components/WorkflowNodeReadonly";
 
-type Workflow = {
+interface WorkflowDefinitionResponse {
     id: string;
-    name: string;
+    transitions: Record<string, any>;
     status: string;
-    triggerIds: string[];
-    credentialIds: string[];
-    actions: {
-        id: string;
-        name: string;
-        type: string;
-        credentialId?: string;
-        input: Record<string, unknown>;
-        parallelGroup?: string;
+}
+
+interface WorkflowInstanceResponse {
+    workflowInstanceId: string;
+    definitionId: string;
+    status: string;
+    context: Record<string, any>;
+    history: {
+        actionName: string;
+        input: Record<string, any>;
+        output: Record<string, any>;
+        timestamp: string;
+        status: string;
     }[];
-    createdAt: string;
-    updatedAt: string;
-};
+}
 
 export default function WorkflowDetails() {
-    const {id} = useParams();
+    const { id } = useParams<{ id: string }>();
+    const [workflow, setWorkflow] = useState<WorkflowDefinitionResponse | null>(null);
+    const [instances, setInstances] = useState<WorkflowInstanceResponse[]>([]);
+    const [error, setError] = useState<string | null>(null);
+    const [showActions, setShowActions] = useState(false);
+    const [showInstance, setShowInstance] = useState(false);
     const navigate = useNavigate();
-    const {authorities} = useAuth();
-
-    const canView = authorities?.includes("WORKFLOW_VIEW");
-    const canEdit = authorities?.includes("WORKFLOW_ADMIN");
-
-    const [workflow, setWorkflow] = useState<Workflow | null>(null);
-    const [loading, setLoading] = useState(true);
-    const [showDeleteModal, setShowDeleteModal] = useState(false);
 
     useEffect(() => {
-        if (!canView) return;
+        if (id) {
+            getWorkflowDefinition(id)
+                .then(setWorkflow)
+                .catch(() => setError("Failed to load workflow"));
 
-        axios
-            .get(`/workflows/${id}`)
-            .then((res) => setWorkflow(res.data))
-            .finally(() => setLoading(false));
-    }, [id, canView]);
+            getWorkflowInstancesByDefinition(id)
+                .then(setInstances)
+                .catch(() => {
+                    setInstances([]);
+                });
+        }
+    }, [id]);
 
-    const handleDelete = async () => {
-        if (!workflow) return;
-        await axios.delete(`/workflows/${workflow.id}`);
-        navigate("/workflows");
-    };
-
-    if (!canView) {
-        return <div className="p-6 text-red-600">Access denied</div>;
+    if (error) {
+        return <div className="p-4 text-red-600">{error}</div>;
     }
 
-    if (loading || !workflow) {
-        return <div className="p-6">Loading workflow...</div>;
+    if (!workflow) {
+        return <div className="p-4">Loading...</div>;
     }
 
-    const groupBy = (list: any[], key: string) =>
-        list.reduce((acc, item) => {
-            const value = item[key] || "_";
-            acc[value] = acc[value] || [];
-            acc[value].push(item);
-            return acc;
-        }, {} as Record<string, typeof list>);
+    const latestInstance = instances
+        .sort((a, b) => {
+            const dateA = new Date(a.history[0]?.timestamp || 0).getTime();
+            const dateB = new Date(b.history[0]?.timestamp || 0).getTime();
+            return dateB - dateA;
+        })[0];
 
-    const grouped: Record<string, Workflow["actions"]> = groupBy(workflow.actions, "parallelGroup");
+    const actionsFromTransitions = Object.keys(workflow.transitions).filter((a) => a !== "start");
 
     return (
-        <div className="p-6">
-            <div className="mb-4 flex justify-between items-center">
-                <h1 className="text-2xl font-bold">{workflow.name}</h1>
-                <div className="flex gap-2">
-                    <button
-                        onClick={() => navigate(`/workflows/${id}/instances`)}
-                        className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
-                    >
-                        View Executions
-                    </button>
-                    {canEdit && (
-                        <button
-                            onClick={() => setShowDeleteModal(true)}
-                            className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700"
-                        >
-                            Delete
-                        </button>
-                    )}
-                </div>
+        <div className="p-4 space-y-4">
+            <h1 className="text-2xl font-bold mb-4">Workflow Details</h1>
+
+            <div className="space-y-2">
+                <div><strong>ID:</strong> {workflow.id}</div>
+                <div><strong>Status:</strong> {workflow.status}</div>
             </div>
 
-            <div className="mb-6 grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                    <h2 className="text-lg font-semibold">Status</h2>
-                    <p className="text-gray-700">{workflow.status}</p>
-                </div>
-
-                <div>
-                    <h2 className="text-lg font-semibold">Triggers</h2>
-                    {workflow.triggerIds.length > 0 ? (
-                        <ul className="list-disc ml-4 text-gray-700">
-                            {workflow.triggerIds.map((t) => (
-                                <li key={t}>{t}</li>
-                            ))}
-                        </ul>
-                    ) : (
-                        <p className="text-gray-500">No triggers</p>
-                    )}
-                </div>
-
-                <div>
-                    <h2 className="text-lg font-semibold">Credentials</h2>
-                    {workflow.credentialIds.length > 0 ? (
-                        <ul className="list-disc ml-4 text-gray-700">
-                            {workflow.credentialIds.map((c) => (
-                                <li key={c}>{c}</li>
-                            ))}
-                        </ul>
-                    ) : (
-                        <p className="text-gray-500">No credentials</p>
-                    )}
-                </div>
+            <div className="flex gap-2 mt-4">
+                <button
+                    onClick={() => navigate(`/workflows/${workflow.id}/edit`)}
+                    className="bg-yellow-400 hover:bg-yellow-600 text-white font-bold py-2 px-4 rounded"
+                >
+                    Edit
+                </button>
+                <button
+                    onClick={() => navigate(`/workflows/${workflow.id}/instances`)}
+                    className="bg-purple-500 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded"
+                >
+                    Instances
+                </button>
             </div>
 
-            <div>
-                <h2 className="text-lg font-semibold mb-2">Actions</h2>
-                {Object.entries(grouped).map(([group, actions]) => (
-                    <div key={group} className="mb-4">
-                        <h3 className="text-gray-600 mb-1">
-                            Group: {group === "_" ? "None" : group}
-                        </h3>
-                        <ul className="list-disc ml-6 text-gray-700">
-                            {actions.map((action) => (
-                                <li key={action.id}>
-                                    <strong>{action.name}</strong> ({action.type})
-                                </li>
-                            ))}
-                        </ul>
+            <div className="mt-6">
+                <button
+                    onClick={() => setShowActions((prev) => !prev)}
+                    className="bg-gray-300 hover:bg-gray-500 text-black font-bold py-2 px-4 rounded w-full text-left"
+                >
+                    {showActions ? "Hide Actions" : "Show Actions"}
+                </button>
+                {showActions && (
+                    <div className="mt-4 space-y-4">
+                        {actionsFromTransitions.map((actionName, idx) => (
+                            <WorkflowNodeReadonly key={idx} actionName={actionName} />
+                        ))}
                     </div>
-                ))}
+                )}
             </div>
 
-            {showDeleteModal && (
-                <DeleteWorkflowModal
-                    workflowName={workflow.name}
-                    onCancel={() => setShowDeleteModal(false)}
-                    onConfirm={handleDelete}
-                />
-            )}
+            <div className="mt-6">
+                <button
+                    onClick={() => setShowInstance((prev) => !prev)}
+                    className="bg-gray-300 hover:bg-gray-500 text-black font-bold py-2 px-4 rounded w-full text-left"
+                >
+                    {showInstance ? "Hide Latest Instance" : "Show Latest Instance"}
+                </button>
+                {showInstance && (
+                    <div className="mt-4">
+                        {instances.length === 0 ? (
+                            <div>No instances found for this workflow.</div>
+                        ) : latestInstance ? (
+                            <div className="space-y-2">
+                                <div><strong>Instance ID:</strong> {latestInstance.workflowInstanceId}</div>
+                                <div><strong>Status:</strong> {latestInstance.status}</div>
+                                <div className="mt-4">
+                                    <h2 className="text-lg font-semibold mb-2">History:</h2>
+                                    {latestInstance.history.map((step, idx) => (
+                                        <div key={idx} className="border rounded p-2 bg-gray-50 space-y-1">
+                                            <div><strong>Action:</strong> {step.actionName}</div>
+                                            <div><strong>Status:</strong> {step.status}</div>
+                                            <div><strong>Timestamp:</strong> {new Date(step.timestamp).toLocaleString()}</div>
+                                            <div className="mt-2">
+                                                <strong>Input:</strong>
+                                                <pre className="bg-gray-100 p-2 rounded">{JSON.stringify(step.input, null, 2)}</pre>
+                                            </div>
+                                            <div className="mt-2">
+                                                <strong>Output:</strong>
+                                                <pre className="bg-gray-100 p-2 rounded">{JSON.stringify(step.output, null, 2)}</pre>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        ) : (
+                            <div>No latest instance available.</div>
+                        )}
+                    </div>
+                )}
+            </div>
+
+            <div className="mt-6">
+                <h2 className="text-xl font-semibold mb-2">Transitions:</h2>
+                <div className="space-y-2">
+                    {Object.entries(workflow.transitions).map(([from, tos]) => (
+                        <div key={from} className="border rounded p-2 bg-gray-100">
+                            <div className="font-bold">{from}</div>
+                            {tos.length > 0 ? (
+                                <ul className="list-disc ml-6">
+                                    {tos.map((to: any, idx: number) => (
+                                        <li key={idx}>
+                                            ➔ {to.actionName}
+                                        </li>
+                                    ))}
+                                </ul>
+                            ) : (
+                                <div className="text-gray-600">No transitions</div>
+                            )}
+                        </div>
+                    ))}
+                </div>
+            </div>
         </div>
     );
 }

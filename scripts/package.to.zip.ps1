@@ -26,7 +26,7 @@ function Resolve-Folder($name) {
     $tryPaths = @(
         (Join-Path $projectRoot $cleanName),
         (Join-Path (Join-Path $projectRoot "modules") $cleanName),
-        (Join-Path (Join-Path $projectRoot "modules\\agents") $cleanName)
+        (Join-Path (Join-Path $projectRoot "agents") $cleanName)
     )
     foreach ($path in $tryPaths) {
         if ($path -and (Test-Path $path) -and (Get-Item $path).PSIsContainer) {

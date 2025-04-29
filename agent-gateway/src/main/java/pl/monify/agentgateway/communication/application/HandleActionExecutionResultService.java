@@ -21,10 +21,10 @@ public class HandleActionExecutionResultService implements HandleActionExecution
 
     @Override
     public void handle(String correlationId, String status, JsonNode output, String[] logs) {
-        log.info("[WS] Received result for actionInstanceId={}, status={}", correlationId, status);
+        log.info("[WS] Received result for correlationId={}, status={}", correlationId, status);
 
         Map<String, Object> resultMap = new HashMap<>();
-        resultMap.put("actionInstanceId", correlationId);
+        resultMap.put("correlationId", correlationId);
         resultMap.put("status", status);
         resultMap.put("output", output);
         resultMap.put("logs", logs);

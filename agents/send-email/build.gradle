@@ -20,6 +20,9 @@ repositories {
 dependencies {
     // Spring Boot Core
     implementation 'org.springframework.boot:spring-boot-starter'
+    implementation 'org.springframework.boot:spring-boot-starter-actuator'
+
+    implementation 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310'
 
     // Konfiguracja (Spring Boot config properties)
     annotationProcessor 'org.springframework.boot:spring-boot-configuration-processor'

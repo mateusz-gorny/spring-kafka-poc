@@ -9,6 +9,7 @@ import org.springframework.web.reactive.handler.SimpleUrlHandlerMapping;
 import pl.monify.agentgateway.communication.application.HandleActionExecutionResultService;
 import pl.monify.agentgateway.communication.application.PingAgentService;
 import pl.monify.agentgateway.communication.application.RegisterAgentService;
+import pl.monify.agentgateway.communication.domain.port.out.AgentPingReceivedEventPublisherPort;
 import pl.monify.agentgateway.token.config.JwtKeysProperties;
 import pl.monify.agentgateway.communication.domain.port.in.HandleActionExecutionResultUseCase;
 import pl.monify.agentgateway.communication.domain.port.in.PingAgentUseCase;
@@ -59,8 +60,8 @@ public class CommunicationConfiguration {
     }
 
     @Bean
-    public PingAgentUseCase pingAgentUseCase() {
-        return new PingAgentService();
+    public PingAgentUseCase pingAgentUseCase(AgentPingReceivedEventPublisherPort eventPublisher) {
+        return new PingAgentService(eventPublisher);
     }
 
     @Bean
@@ -77,8 +78,8 @@ public class CommunicationConfiguration {
     }
 
     @Bean
-    public PingHandler pingHandler(PingAgentUseCase useCase) {
-        return new PingHandler(useCase);
+    public PingHandler pingHandler(PingAgentUseCase pingAgentUseCase, ObjectMapper objectMapper) {
+        return new PingHandler(pingAgentUseCase, objectMapper);
     }
 
     @Bean

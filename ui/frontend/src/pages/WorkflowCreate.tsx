@@ -1,260 +1,143 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
+import { createWorkflow, getAvailableActions } from "../api/api";
+import ActionSidebar from "../components/ActionSidebar";
+import WorkflowCanvas from "../components/WorkflowCanvas";
+import InputDialog from "../components/InputDialog";
 import { useNavigate } from "react-router-dom";
-import axios from "../api/api";
-import { useAuth } from "../auth/AuthContext";
 
-type RegisteredAction = {
+interface ActionInfoDto {
     name: string;
-    displayName: string;
     teamId: string;
-    agentId: string;
-    inputSchema: Record<string, "string" | "array" | "number" | "boolean">;
-};
+    inputSchema: Record<string, any>;
+    outputSchema: Record<string, any>;
+}
 
-type NewAction = {
-    name: string;
-    type: string;
-    agentId: string;
-    credentialId?: string;
-    input: Record<string, any>;
-};
+interface NodeInstance {
+    id: string;
+    action: ActionInfoDto;
+    inputs: Record<string, string>;
+}
 
 export default function WorkflowCreate() {
-    const { authorities } = useAuth();
-    const canCreate = authorities?.includes("WORKFLOW_ADMIN");
+    const [availableActions, setAvailableActions] = useState<ActionInfoDto[]>([]);
+    const [nodes, setNodes] = useState<NodeInstance[]>([]);
+    const [inputEdit, setInputEdit] = useState<{ nodeId: string; inputKey: string } | null>(null);
+    const [dialogOpen, setDialogOpen] = useState(false);
+    const [error, setError] = useState<string | null>(null);
     const navigate = useNavigate();
 
-    const [name, setName] = useState("");
-    const [actions, setActions] = useState<NewAction[]>([]);
-    const [availableActions, setAvailableActions] = useState<RegisteredAction[]>([]);
-    const [selectedActionType, setSelectedActionType] = useState("");
-    const [inputSchema, setInputSchema] = useState<Record<string, string>>({});
-    const [inputValues, setInputValues] = useState<Record<string, any>>({});
-    const [actionName, setActionName] = useState("");
-    const [actionCredential, setActionCredential] = useState("");
-    const [actionAgentId, setActionAgentId] = useState("");
-
-    const [triggers, setTriggers] = useState([]);
-    const [credentials, setCredentials] = useState([]);
-    const [selectedTriggers, setSelectedTriggers] = useState<string[]>([]);
-    const [selectedCredentials, setSelectedCredentials] = useState<string[]>([]);
-
     useEffect(() => {
-        if (!canCreate) return;
-        axios.get("/actions").then(res => {
-            setAvailableActions(res.data);
-        });
-        axios.get("/triggers").then(res => setTriggers(res.data));
-        axios.get("/credentials").then(res => setCredentials(res.data));
-    }, [canCreate]);
+        getAvailableActions()
+            .then(setAvailableActions)
+            .catch(() => setError("Failed to load actions"));
+    }, []);
 
-    useEffect(() => {
-        if (!selectedActionType) return;
-        axios.get(`/actions/${selectedActionType}`).then(res => {
-            setInputSchema(res.data.inputSchema || {});
-        });
-    }, [selectedActionType]);
-
-    const handleInputChange = (key: string, value: any) => {
-        setInputValues(prev => ({ ...prev, [key]: value }));
+    const addAction = (action: ActionInfoDto) => {
+        const id = crypto.randomUUID();
+        setNodes((prev) => [...prev, { id, action, inputs: {} }]);
     };
 
-    const addAction = () => {
-        if (!selectedActionType || !actionName || !actionAgentId) return;
-        setActions(prev => [
-            ...prev,
-            {
-                name: actionName,
-                type: selectedActionType,
-                agentId: actionAgentId,
-                input: inputValues,
-                credentialId: actionCredential,
-            },
-        ]);
-        setActionName("");
-        setSelectedActionType("");
-        setActionAgentId("");
-        setInputSchema({});
-        setInputValues({});
-        setActionCredential("");
+    const removeAction = (id: string) => {
+        setNodes((prev) => prev.filter((node) => node.id !== id));
     };
 
-    const submitWorkflow = () => {
-        axios
-            .post("/workflows", {
-                name,
-                status: "ACTIVE",
-                triggerIds: selectedTriggers,
-                credentialIds: selectedCredentials,
-                actions,
+    const openInputDialog = (nodeId: string, inputKey: string) => {
+        setInputEdit({ nodeId, inputKey });
+        setDialogOpen(true);
+    };
+
+    const updateInput = (value: string) => {
+        if (!inputEdit) return;
+        setNodes((prev) =>
+            prev.map((node) => {
+                if (node.id === inputEdit.nodeId) {
+                    return {
+                        ...node,
+                        inputs: {
+                            ...node.inputs,
+                            [inputEdit.inputKey]: value,
+                        },
+                    };
+                }
+                return node;
             })
-            .then(() => {
-                navigate("/workflows");
-            });
+        );
+        setDialogOpen(false);
     };
 
-    if (!canCreate) {
-        return <div className="p-6 text-red-600">Access denied: insufficient permissions.</div>;
-    }
+    const handleCreate = async () => {
+        if (nodes.length === 0) {
+            setError("Add at least one action to the workflow.");
+            return;
+        }
+
+        const transitions: Record<string, any[]> = {};
+
+        if (nodes.length > 0) {
+            transitions["start"] = [
+                { actionName: nodes[0].action.name, outputToInputMapping: nodes[0].inputs }
+            ];
+        }
+
+        for (let i = 0; i < nodes.length; i++) {
+            const current = nodes[i];
+            const next = nodes[i + 1];
+            if (next) {
+                transitions[current.action.name] = [
+                    { actionName: next.action.name, outputToInputMapping: next.inputs }
+                ];
+            } else {
+                transitions[current.action.name] = [];
+            }
+        }
+
+        try {
+            await createWorkflow({ transitions });
+            navigate("/workflows");
+        } catch {
+            setError("Failed to create workflow");
+        }
+    };
+
+    const buildAvailableOutputs = (currentNodeIndex: number) => {
+        return nodes
+            .slice(0, currentNodeIndex)
+            .flatMap((node, idx) =>
+                Object.keys(node.action.outputSchema?.properties || {}).map((outputKey) => ({
+                    nodeId: node.id,
+                    actionName: node.action.name,
+                    outputKey,
+                    index: idx,
+                }))
+            );
+    };
 
     return (
-        <div className="p-6 max-w-3xl mx-auto">
-            <h1 className="text-2xl font-bold mb-4">Create Workflow</h1>
-
-            <label className="block mb-2 font-medium">Workflow name</label>
-            <input
-                className="border px-3 py-2 rounded w-full mb-4"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-            />
-
-            <div className="mb-4">
-                <label className="block font-semibold mb-1">Triggers</label>
-                <select
-                    multiple
-                    className="border px-3 py-2 rounded w-full h-32"
-                    value={selectedTriggers}
-                    onChange={(e) => {
-                        const values = Array.from(e.target.selectedOptions).map(o => o.value);
-                        setSelectedTriggers(values);
-                    }}
-                >
-                    {triggers.map((t: any) => (
-                        <option key={t.id} value={t.id}>
-                            {t.name} ({t.type})
-                        </option>
-                    ))}
-                </select>
-            </div>
-
-            <div className="mb-6">
-                <label className="block font-semibold mb-1">Credentials</label>
-                <select
-                    multiple
-                    className="border px-3 py-2 rounded w-full h-32"
-                    value={selectedCredentials}
-                    onChange={(e) => {
-                        const values = Array.from(e.target.selectedOptions).map(o => o.value);
-                        setSelectedCredentials(values);
-                    }}
-                >
-                    {credentials.map((c: any) => (
-                        <option key={c.id} value={c.id}>
-                            {c.name} ({c.type})
-                        </option>
-                    ))}
-                </select>
-            </div>
-
-            <div className="border rounded p-4 mb-6">
-                <h2 className="text-lg font-semibold mb-2">Add Action</h2>
-
-                <label className="block text-sm">Type</label>
-                <select
-                    className="border px-3 py-2 rounded mb-3 w-full"
-                    value={selectedActionType}
-                    onChange={(e) => setSelectedActionType(e.target.value)}
-                >
-                    <option value="">-- choose action --</option>
-                    {[...new Set(availableActions.map(a => a.name))].map((type) => (
-                        <option key={type} value={type}>
-                            {type}
-                        </option>
-                    ))}
-                </select>
-
-                {selectedActionType && (
-                    <>
-                        <label className="block text-sm">Agent</label>
-                        <select
-                            className="border px-3 py-2 rounded mb-3 w-full"
-                            value={actionAgentId}
-                            onChange={(e) => setActionAgentId(e.target.value)}
-                        >
-                            <option value="">-- choose agent --</option>
-                            {availableActions
-                                .filter(a => a.name === selectedActionType)
-                                .map(a => (
-                                    <option key={a.agentId} value={a.agentId}>
-                                        {a.displayName} ({a.teamId})
-                                    </option>
-                                ))}
-                        </select>
-
-                        <label className="block text-sm">Action Name</label>
-                        <input
-                            className="border px-3 py-2 rounded mb-3 w-full"
-                            value={actionName}
-                            onChange={(e) => setActionName(e.target.value)}
-                        />
-
-                        <label className="block text-sm">Credential</label>
-                        <select
-                            className="border px-3 py-2 rounded mb-4 w-full"
-                            value={actionCredential}
-                            onChange={(e) => setActionCredential(e.target.value)}
-                        >
-                            <option value="">-- none --</option>
-                            {credentials.map((c: any) => (
-                                <option key={c.id} value={c.id}>
-                                    {c.name} ({c.type})
-                                </option>
-                            ))}
-                        </select>
-
-                        <h3 className="font-semibold mb-2">Input Parameters</h3>
-                        {Object.entries(inputSchema).map(([key, type]) => (
-                            <div key={key} className="mb-3">
-                                <label className="block text-sm font-medium">{key}</label>
-                                {type === "array" ? (
-                                    <input
-                                        className="border px-3 py-2 rounded w-full"
-                                        type="text"
-                                        placeholder="comma,separated,values"
-                                        onChange={(e) => handleInputChange(key, e.target.value.split(","))}
-                                    />
-                                ) : (
-                                    <input
-                                        className="border px-3 py-2 rounded w-full"
-                                        type="text"
-                                        onChange={(e) => handleInputChange(key, e.target.value)}
-                                    />
-                                )}
-                            </div>
-                        ))}
-
-                        <button
-                            onClick={addAction}
-                            className="mt-2 bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
-                        >
-                            Add Action
-                        </button>
-                    </>
-                )}
-            </div>
-
-            {actions.length > 0 && (
-                <div className="mb-4">
-                    <h2 className="text-lg font-semibold">Actions in Workflow</h2>
-                    <ul className="border rounded divide-y mt-2">
-                        {actions.map((a, i) => (
-                            <li key={i} className="p-3">
-                                <div className="font-medium">{a.name} ({a.type})</div>
-                                <pre className="text-sm text-gray-600">
-                  {JSON.stringify(a.input, null, 2)}
-                </pre>
-                            </li>
-                        ))}
-                    </ul>
+        <div className="flex h-screen">
+            <div className="flex-1 overflow-auto p-4">
+                <WorkflowCanvas nodes={nodes} onRemove={removeAction} onEditInput={openInputDialog} />
+                <div className="mt-6">
+                    <button
+                        onClick={handleCreate}
+                        className="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-6 rounded"
+                    >
+                        Create Workflow
+                    </button>
                 </div>
+            </div>
+            <div className="w-64 border-l p-4 overflow-auto">
+                <ActionSidebar actions={availableActions} onAdd={addAction} />
+            </div>
+            {dialogOpen && inputEdit && (
+                <InputDialog
+                    onSave={updateInput}
+                    onClose={() => setDialogOpen(false)}
+                    nodeId={inputEdit.nodeId}
+                    inputKey={inputEdit.inputKey}
+                    outputs={buildAvailableOutputs(nodes.findIndex((n) => n.id === inputEdit.nodeId))}
+                />
             )}
-
-            <button
-                onClick={submitWorkflow}
-                className="bg-green-600 text-white px-6 py-2 rounded hover:bg-green-700"
-            >
-                Create Workflow
-            </button>
+            {error && <div className="p-4 text-red-600">{error}</div>}
         </div>
     );
 }

@@ -1,10 +1,9 @@
 package pl.monify.agentgateway.communication.application;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import pl.monify.agentgateway.communication.domain.model.AgentRegisterModel;
 import pl.monify.agentgateway.communication.domain.model.AgentRegisteredMessage;
-import pl.monify.agentgateway.communication.domain.model.AgentSession;
 import pl.monify.agentgateway.communication.domain.port.in.RegisterAgentUseCase;
 import pl.monify.agentgateway.communication.domain.port.out.ActionRegistryPort;
 import pl.monify.agentgateway.communication.domain.port.out.AgentRegisteredEventSenderPort;
@@ -22,12 +21,19 @@ public class RegisterAgentService implements RegisterAgentUseCase {
     }
 
     @Override
-    public void register(String teamId, String action, AgentSession session, JsonNode inputSchema, JsonNode outputSchema) {
-        log.info("[WS] Received register message for agent {} for team {}", session.id(), teamId);
-        actionRegistry.register(teamId, action, session, inputSchema, outputSchema);
+    public void register(AgentRegisterModel agentRegisterModel) {
+        log.info("[WS] Received register message for agent {} for team {}", agentRegisterModel.session().id(), agentRegisterModel.teamId());
+        actionRegistry.register(agentRegisterModel);
 
-        AgentRegisteredMessage event = new AgentRegisteredMessage(action, session.id(), teamId, inputSchema, outputSchema);
-        log.info("[WS] Sending agent registered event for agent {} for team {}", session.id(), teamId);
+        AgentRegisteredMessage event = new AgentRegisteredMessage(
+                agentRegisterModel.agentId(),
+                agentRegisterModel.actionName(),
+                agentRegisterModel.session().id(),
+                agentRegisterModel.teamId(),
+                agentRegisterModel.inputSchema(),
+                agentRegisterModel.outputSchema()
+        );
+        log.info("[WS] Sending agent registered event for agent {} for team {}", agentRegisterModel.session().id(), agentRegisterModel.teamId());
         eventSender.send(event);
     }
 }

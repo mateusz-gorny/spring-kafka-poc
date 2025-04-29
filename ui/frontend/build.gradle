@@ -19,3 +19,11 @@ tasks.register('buildFrontend', Exec) {
 tasks.named('build') {
     dependsOn 'buildFrontend'
 }
+
+tasks.register('run', Exec) {
+    group = 'application'
+    description = 'Run frontend with Vite'
+    dependsOn 'installFrontend'
+    workingDir = projectDir
+    commandLine = [npmCmd, 'run', 'dev']
+}

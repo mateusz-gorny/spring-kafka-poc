@@ -38,11 +38,13 @@ public class WebSocketAgentSenderAdapter implements AgentSenderPort {
                 MDC.put("sessionId", registeredSession.id());
                 MDC.put("teamId", request.teamId());
 
-                log.info("[WS] Sending to {}: {}", registeredSession.id(), request.toString());
+                log.info("[WS] Sending to {}: {}", registeredSession.id(), request);
 
                 String json = objectMapper.writeValueAsString(Map.of(
                         "type", "ActionExecutionRequest",
                         "correlationId", request.correlationId(),
+                        "action", request.action(),
+                        "teamId", request.teamId(),
                         "input", request.input()
                 ));
                 log.debug("[WS] Sending to {}: {}", registeredSession.id(), json);

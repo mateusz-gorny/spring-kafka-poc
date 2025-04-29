@@ -42,36 +42,6 @@ public class AuthController {
         ));
     }
 
-
-    @PostMapping("/token")
-    public ResponseEntity<TokenResponse> getToken(@RequestBody TokenRequest request) {
-        log.info("Token request: {}", request);
-        if (request.agentId() == null || request.secret() == null) {
-            return ResponseEntity.status(401).build();
-        }
-        log.info("Token request: agentId={}, secret={}", request.agentId(), request.secret());
-
-        if (!jwtService.isValidAgentSecret(request.agentId(), request.secret())) {
-            return ResponseEntity.status(401).build();
-        }
-        log.info("Token request: agentId={}, secret={} is valid", request.agentId(), request.secret());
-
-        return ResponseEntity.ok(new TokenResponse(
-                jwtService.generateTokenForAgent(request.agentId())
-        ));
-    }
-
-    public record TokenRequest(
-            String agentId,
-            String secret
-    ) {
-    }
-
-    public record TokenResponse(
-            String token
-    ) {
-    }
-
     public record LoginRequest(String username, String password) {
     }
 }

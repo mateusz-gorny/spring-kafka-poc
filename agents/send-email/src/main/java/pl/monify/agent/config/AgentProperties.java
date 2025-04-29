@@ -6,6 +6,7 @@ import java.util.List;
 
 @ConfigurationProperties(prefix = "monify.agent")
 public record AgentProperties(
+        String id,
         String name,
         String secret,
         String teamId,

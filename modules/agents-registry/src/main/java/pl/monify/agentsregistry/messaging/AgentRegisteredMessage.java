@@ -3,11 +3,12 @@ package pl.monify.agentsregistry.messaging;
 import java.util.Map;
 
 public record AgentRegisteredMessage(
-        String name,
         String agentId,
+        String action,
+        String sessionId,
         String teamId,
         String displayName,
-        String mode, // "MESSAGE" lub "REQUEST"
+        String mode,
         String queue,
         Map<String, Object> inputSchema,
         Map<String, Object> outputSchema

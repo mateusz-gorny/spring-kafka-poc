@@ -1,29 +1,25 @@
 package pl.monify.agentgateway;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.Import;
-import org.springframework.data.mongodb.repository.config.EnableReactiveMongoRepositories;
-import pl.monify.agentgateway.agentdelivery.AgentDeliveryPortsConfiguration;
+import org.springframework.data.mongodb.repository.config.EnableMongoRepositories;
 import pl.monify.agentgateway.config.JwtProperties;
 import pl.monify.agentgateway.config.WebSocketProperties;
-import pl.monify.agentgateway.token.TokenConfiguration;
 
 @Configuration
 @EnableConfigurationProperties({
         JwtProperties.class,
         WebSocketProperties.class
 })
-@Import({
-        AgentDeliveryPortsConfiguration.class,
-        TokenConfiguration.class,
-})
-@EnableReactiveMongoRepositories
+@EnableMongoRepositories
 public class AgentGatewayModuleConfiguration {
     @Bean
     public ObjectMapper objectMapper() {
-        return new ObjectMapper();
+        ObjectMapper objectMapper = new ObjectMapper();
+        objectMapper.registerModule(new JavaTimeModule());
+        return objectMapper;
     }
 }

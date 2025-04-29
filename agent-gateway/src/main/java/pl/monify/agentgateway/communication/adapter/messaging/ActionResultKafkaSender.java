@@ -23,7 +23,7 @@ public class ActionResultKafkaSender implements ActionResultSenderPort {
     @Override
     public void send(Map<String, Object> result) {
         try {
-            String key = (String) result.get("actionInstanceId");
+            String key = (String) result.get("correlationId");
             kafkaTemplate.send(topic, key, result);
             log.info("[Kafka] Sent action result for {}", key);
         } catch (Exception e) {

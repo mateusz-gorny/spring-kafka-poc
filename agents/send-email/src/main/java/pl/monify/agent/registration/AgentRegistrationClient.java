@@ -5,9 +5,9 @@ import okhttp3.WebSocket;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import pl.monify.agent.config.AgentProperties;
+import pl.monify.agent.task.ActionTaskExecutor;
 import pl.monify.agent.ws.SessionRegistry;
 
-import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -17,39 +17,32 @@ public class AgentRegistrationClient {
     private final AgentProperties props;
     private final ObjectMapper mapper;
     private final SessionRegistry registry;
+    private final ActionTaskExecutor[] actionTaskExecutors;
 
-    public AgentRegistrationClient(AgentProperties props, ObjectMapper mapper, SessionRegistry registry) {
+    public AgentRegistrationClient(AgentProperties props, ObjectMapper mapper, SessionRegistry registry, ActionTaskExecutor[] actionTaskExecutors) {
         this.props = props;
         this.mapper = mapper;
         this.registry = registry;
+        this.actionTaskExecutors = actionTaskExecutors;
     }
 
     public void registerAll() {
         WebSocket socket = registry.get();
 
-        List<String> actions = props.actions();
-        for (String action : actions) {
+        for (ActionTaskExecutor actionTaskExecutor : actionTaskExecutors) {
             try {
-                Map<String, Object> message = Map.of(
+                String json = mapper.writeValueAsString(Map.of(
                         "type", "register",
                         "teamId", props.teamId(),
-                        "action", action,
+                        "action", actionTaskExecutor.getActionName(),
+                        "agentId", props.id(),
                         "correlationId", UUID.randomUUID().toString(),
-                        "inputSchema", Map.of("type", "object", "properties", Map.of(
-                                "to", Map.of("type", "string"),
-                                "subject", Map.of("type", "string"),
-                                "body", Map.of("type", "string")
-                        )),
-                        "outputSchema", Map.of("type", "object", "properties", Map.of(
-                                "result", Map.of("type", "string"),
-                                "status", Map.of("type", "string")
-                        ))
-                );
-
-                String json = mapper.writeValueAsString(message);
+                        "inputSchema", actionTaskExecutor.getInputSchema(),
+                        "outputSchema", actionTaskExecutor.getOutputSchema()
+                ));
                 socket.send(json);
             } catch (Exception e) {
-                log.error("[REGISTER] Failed to send registration for action: {}", action, e);
+                log.error("[REGISTER] Failed to send registration for action: {}", actionTaskExecutor.getActionName(), e);
             }
         }
     }

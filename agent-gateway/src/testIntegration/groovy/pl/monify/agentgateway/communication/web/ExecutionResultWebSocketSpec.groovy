@@ -47,7 +47,7 @@ class ExecutionResultWebSocketSpec extends BaseIntegrationSpec {
         then:
         captured.size() == 1
         with(captured[0]) {
-            assert it.actionInstanceId == "abc-123"
+            assert it.correlationId == "abc-123"
             assert it.status == "SUCCESS"
             assert it.output.key.asText() == "value"
             assert it.logs instanceof String[]

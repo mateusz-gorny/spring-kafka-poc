@@ -3,22 +3,18 @@ package pl.monify.agentgateway.token;
 import io.jsonwebtoken.JwtParser;
 import io.jsonwebtoken.Jwts;
 import org.springframework.context.annotation.Bean;
-import pl.monify.agentgateway.token.config.JwtKeysProperties;
-import pl.monify.agentgateway.token.adapter.InMemoryJwtKeyProvider;
+import org.springframework.context.annotation.Configuration;
 import pl.monify.agentgateway.token.adapter.JwtKeyLocator;
 import pl.monify.agentgateway.token.adapter.JwtTokenGeneratorAdapter;
 import pl.monify.agentgateway.token.adapter.JwtTokenParserAdapter;
 import pl.monify.agentgateway.token.application.TokenService;
+import pl.monify.agentgateway.token.config.JwtKeysProperties;
 import pl.monify.agentgateway.token.domain.port.in.JwtTokenParserPort;
 import pl.monify.agentgateway.token.domain.port.out.JwtTokenGeneratorPort;
 import pl.monify.agentgateway.token.domain.port.out.JwtTokenKeyProviderPort;
 
+@Configuration
 public class TokenConfiguration {
-
-    @Bean
-    public JwtTokenKeyProviderPort jwtTokenKeyProvider(JwtKeysProperties props) {
-        return new InMemoryJwtKeyProvider(props.keys());
-    }
 
     @Bean
     public JwtKeyLocator jwtKeyLocator(JwtTokenKeyProviderPort provider) {
@@ -43,7 +39,7 @@ public class TokenConfiguration {
     }
 
     @Bean
-    public TokenService tokenService(JwtTokenGeneratorPort tokenGenerator, JwtKeysProperties keysProperties) {
-        return new TokenService(tokenGenerator, keysProperties);
+    public TokenService tokenService(JwtTokenGeneratorPort tokenGenerator, JwtTokenKeyProviderPort keyProvider) {
+        return new TokenService(tokenGenerator, keyProvider);
     }
 }

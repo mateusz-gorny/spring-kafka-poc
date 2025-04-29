@@ -26,6 +26,12 @@ const Sidebar = () => {
                     </Link>
                 )}
 
+                {authorities?.includes("AGENT_USER") && (
+                    <Link to="/agents" className="block px-2 py-2 hover:bg-gray-800 rounded">
+                        Agents
+                    </Link>
+                )}
+
                 {authorities?.includes("ACTUATOR") && (
                     <Link to="/actuator" className="block px-2 py-2 hover:bg-gray-800 rounded">
                         Actuator

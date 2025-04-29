@@ -23,6 +23,10 @@ import WorkflowInstanceDetails from "./pages/WorkflowInstanceDetails";
 import ProjectForm from "./pages/ProjectForm";
 import ActuatorExplorer from "./pages/ActuatorExplorer";
 
+import Agents from "./pages/Agents";
+import AgentDetails from "./pages/AgentDetails";
+import AgentPingHistory from "./pages/AgentPingHistory";
+
 const App = () => (
     <AuthProvider>
         <ToastProvider>
@@ -60,6 +64,11 @@ const App = () => (
                         <Route path="workflows/:id" element={<WorkflowDetails/>}/>
                         <Route path="workflows/:id/instances" element={<WorkflowInstances/>}/>
                         <Route path="instances/:id" element={<WorkflowInstanceDetails/>}/>
+
+                        {/* Agents */}
+                        <Route path="agents" element={<Agents/>}/>
+                        <Route path="agents/:id" element={<AgentDetails/>}/>
+                        <Route path="agents/:id/ping-history" element={<AgentPingHistory/>}/>
 
                         {/* Catch-all */}
                         <Route path="*" element={<Navigate to="/"/>}/>

@@ -11,7 +11,6 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
-import pl.monify.agentstoken.AgentTokenService;
 
 import javax.crypto.SecretKey;
 import java.io.Serial;
@@ -23,11 +22,9 @@ import java.util.List;
 public class JwtService {
     private static final Logger log = LoggerFactory.getLogger(JwtService.class);
     private final SecretKey secretKey;
-    private final AgentTokenService agentTokenService;
 
-    public JwtService(SecretKey secretKey, AgentTokenService agentTokenService) {
+    public JwtService(SecretKey secretKey) {
         this.secretKey = secretKey;
-        this.agentTokenService = agentTokenService;
     }
 
     public String generateToken(User user, String teamId) {
@@ -62,10 +59,6 @@ public class JwtService {
                 .and()
                 .signWith(secretKey)
                 .compact();
-    }
-
-    public boolean isValidAgentSecret(String agentId, String secret) {
-        return agentTokenService.isValidSecret(agentId, secret);
     }
 
     public User parseToken(String token) {

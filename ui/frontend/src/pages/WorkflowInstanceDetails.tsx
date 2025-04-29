@@ -1,90 +1,95 @@
-import React, {useEffect, useState} from "react";
-import {useParams} from "react-router-dom";
-import axios from "../api/api";
-import {useAuth} from "../auth/AuthContext";
+import { useEffect, useState } from "react";
+import { getWorkflowInstance, getWorkflowInstanceStatus } from "../api/api";
 
-type Action = {
-    actionId: string;
-    name: string;
+interface StepRecordResponse {
+    actionName: string;
+    input: Record<string, any>;
+    output: Record<string, any>;
+    timestamp: string;
     status: string;
-    log?: string;
-    output?: Record<string, any>;
-};
+}
 
-type Instance = {
-    id: string;
-    workflowId: string;
+interface WorkflowInstanceResponse {
+    workflowInstanceId: string;
+    definitionId: string;
     status: string;
-    triggeredBy: string;
-    payload: Record<string, any>;
-    startedAt: string;
-    finishedAt?: string;
-    actions: Action[];
-};
+    context: Record<string, any>;
+    history: StepRecordResponse[];
+}
 
-export default function WorkflowInstanceDetails() {
-    const {id} = useParams(); // instance ID
-    const {authorities} = useAuth();
-    const canView = authorities?.includes("WORKFLOW_VIEW");
-
-    const [instance, setInstance] = useState<Instance | null>(null);
+export default function WorkflowInstanceDetails({ instanceId }: { instanceId: string }) {
+    const [instance, setInstance] = useState<WorkflowInstanceResponse | null>(null);
+    const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
-        if (!canView) return;
-        axios.get(`/workflows/instances/${id}`).then((res) => {
-            setInstance(res.data);
-        });
-    }, [id, canView]);
+        getWorkflowInstance(instanceId)
+            .then(setInstance)
+            .catch(() => setError("Failed to load instance details"));
+    }, [instanceId]);
 
-    if (!canView) {
-        return <div className="p-6 text-red-600">Access denied</div>;
+    useEffect(() => {
+        if (!instance) return;
+
+        let polling: number;
+
+        if (instance.status === "RUNNING") {
+            polling = setInterval(async () => {
+                try {
+                    const statusResponse = await getWorkflowInstanceStatus(instance.workflowInstanceId);
+                    if (statusResponse.status !== "RUNNING") {
+                        clearInterval(polling);
+                        const updatedInstance = await getWorkflowInstance(instance.workflowInstanceId);
+                        setInstance(updatedInstance);
+                    }
+                } catch (err) {
+                    console.error("Polling failed", err);
+                }
+            }, 5000);
+        }
+
+        return () => {
+            if (polling) {
+                clearInterval(polling);
+            }
+        };
+    }, [instance]);
+
+    if (error) {
+        return <div className="p-4 text-red-600">{error}</div>;
     }
 
     if (!instance) {
-        return <div className="p-6">Loading instance...</div>;
+        return <div className="p-4">Loading...</div>;
     }
 
     return (
-        <div className="p-6">
-            <h1 className="text-2xl font-bold mb-4">Workflow Execution</h1>
+        <div className="p-4">
+            <h1 className="text-2xl font-bold mb-4">Instance Details</h1>
 
-            <div className="mb-6 grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                    <p><strong>Status:</strong> {instance.status}</p>
-                    <p><strong>Triggered by:</strong> {instance.triggeredBy}</p>
-                    <p><strong>Started:</strong> {new Date(instance.startedAt).toLocaleString()}</p>
-                    <p>
-                        <strong>Finished:</strong> {instance.finishedAt ? new Date(instance.finishedAt).toLocaleString() : "—"}
-                    </p>
-                </div>
-                <div>
-                    <p><strong>Payload:</strong></p>
-                    <pre className="bg-gray-100 text-sm p-3 rounded">{JSON.stringify(instance.payload, null, 2)}</pre>
-                </div>
-            </div>
+            <h2 className="text-xl font-semibold mb-2">Instance ID: {instance.workflowInstanceId}</h2>
+            <h2 className="text-xl font-semibold mb-2">Definition ID: {instance.definitionId}</h2>
+            <h2 className="text-xl font-semibold mb-2">Status: {instance.status}</h2>
 
-            <h2 className="text-xl font-semibold mb-2">Actions</h2>
-            <ul className="border rounded divide-y">
-                {instance.actions.map((a) => (
-                    <li key={a.actionId} className="p-4">
-                        <div className="font-semibold">{a.name}</div>
-                        <p className="text-sm text-gray-600">Status: {a.status}</p>
-                        {a.log && (
-                            <>
-                                <p className="text-sm mt-2 font-medium">Log:</p>
-                                <pre className="text-xs bg-gray-50 rounded p-2 text-gray-800">{a.log}</pre>
-                            </>
-                        )}
-                        {a.output && (
-                            <>
-                                <p className="text-sm mt-2 font-medium">Output:</p>
-                                <pre
-                                    className="text-xs bg-gray-50 rounded p-2 text-gray-800">{JSON.stringify(a.output, null, 2)}</pre>
-                            </>
-                        )}
-                    </li>
+            <h2 className="text-xl font-semibold mt-6 mb-2">Steps:</h2>
+            <div className="space-y-4">
+                {instance.history.map((step, idx) => (
+                    <div key={idx} className="p-4 border rounded">
+                        <h3 className="font-semibold">Action: {step.actionName}</h3>
+                        <p>Status: {step.status}</p>
+                        <p>Timestamp: {new Date(step.timestamp).toLocaleString()}</p>
+
+                        <div className="mt-2">
+                            <strong>Input:</strong>
+                            <pre className="bg-gray-100 p-2 rounded">{JSON.stringify(step.input, null, 2)}</pre>
+                        </div>
+
+                        <div className="mt-2">
+                            <strong>Output:</strong>
+                            <pre className="bg-gray-100 p-2 rounded">{JSON.stringify(step.output, null, 2)}</pre>
+                        </div>
+                    </div>
                 ))}
-            </ul>
+            </div>
         </div>
     );
 }

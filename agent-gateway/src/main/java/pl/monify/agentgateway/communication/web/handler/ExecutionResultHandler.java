@@ -44,7 +44,7 @@ public class ExecutionResultHandler implements AgentMessageHandler {
                 return session.sendText("{\"type\":\"error\",\"payload\":{\"message\":\"Invalid result payload\"}}");
             }
 
-            log.info("[WS] Result received for actionInstanceId {}", result.correlationId());
+            log.info("[WS] Result received for correlationId {}", result.correlationId());
             resultUseCase.handle(
                     result.correlationId(),
                     result.payload().status(),
@@ -52,7 +52,7 @@ public class ExecutionResultHandler implements AgentMessageHandler {
                     result.payload().logs()
             );
 
-            log.info("[WS] Result processed for actionInstanceId {}", result.correlationId());
+            log.info("[WS] Result processed for correlationId {}", result.correlationId());
             return Mono.empty();
 
         } catch (KafkaException e) {

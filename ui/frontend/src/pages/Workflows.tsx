@@ -1,147 +1,116 @@
-import React, {useEffect, useState} from "react";
-import {useNavigate} from "react-router-dom";
-import axios from "../api/api";
-import {useAuth} from "../auth/AuthContext";
-import DeleteWorkflowModal from "../components/DeleteWorkflowModal";
+import { useEffect, useState } from "react";
+import { getWorkflowDefinitions, startWorkflow, deleteWorkflow } from "../api/api";
+import { useNavigate } from "react-router-dom";
 
-type WorkflowStatus = "ACTIVE" | "INACTIVE" | "IN_PROGRESS" | "ARCHIVED";
-
-type Workflow = {
+interface WorkflowDefinitionResponse {
     id: string;
-    name: string;
-    status: WorkflowStatus;
-    actions: unknown[];
-    triggerIds: string[];
-    createdAt: string;
-    updatedAt: string;
-};
+    transitions: Record<string, any>;
+    status: string;
+}
 
 export default function Workflows() {
-    const {authorities} = useAuth();
+    const [workflows, setWorkflows] = useState<WorkflowDefinitionResponse[]>([]);
+    const [error, setError] = useState<string | null>(null);
     const navigate = useNavigate();
 
-    const canView = authorities?.includes("WORKFLOW_VIEW");
-    const canCreate = authorities?.includes("WORKFLOW_ADMIN");
-
-    const [workflows, setWorkflows] = useState<Workflow[]>([]);
-    const [filtered, setFiltered] = useState<Workflow[]>([]);
-    const [includeArchived, setIncludeArchived] = useState(false);
-    const [search, setSearch] = useState("");
-    const [sortBy, setSortBy] = useState<"name" | "createdAt">("createdAt");
-
-    const [deletingWorkflow, setDeletingWorkflow] = useState<Workflow | null>(null);
-
     useEffect(() => {
-        if (canView) {
-            axios
-                .get("/workflows", {
-                    params: {includeArchived},
-                })
-                .then((res) => setWorkflows(res.data));
+        loadWorkflows();
+    }, []);
+
+    const loadWorkflows = async () => {
+        try {
+            const data = await getWorkflowDefinitions();
+            setWorkflows(data);
+        } catch {
+            setError("Failed to load workflows");
         }
-    }, [includeArchived, canView]);
-
-    useEffect(() => {
-        const filteredList = workflows
-            .filter((w) =>
-                w.name.toLowerCase().includes(search.toLowerCase())
-            )
-            .sort((a, b) => {
-                if (sortBy === "name") {
-                    return a.name.localeCompare(b.name);
-                } else {
-                    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-                }
-            });
-
-        setFiltered(filteredList);
-    }, [workflows, search, sortBy]);
-
-    const handleDelete = async () => {
-        if (!deletingWorkflow) return;
-        await axios.delete(`/workflows/${deletingWorkflow.id}`);
-        setWorkflows((prev) => prev.filter(w => w.id !== deletingWorkflow.id));
-        setDeletingWorkflow(null);
     };
 
-    if (!canView) {
-        return <div className="p-6 text-red-600">Access denied: insufficient permissions.</div>;
+    const handleStart = async (id: string) => {
+        try {
+            await startWorkflow(id);
+            await loadWorkflows();
+        } catch {
+            setError("Failed to start workflow");
+        }
+    };
+
+    const handleDelete = async (id: string) => {
+        if (!window.confirm("Are you sure you want to delete this workflow?")) return;
+        try {
+            await deleteWorkflow(id);
+            await loadWorkflows();
+        } catch {
+            setError("Failed to delete workflow");
+        }
+    };
+
+    if (error) {
+        return <div className="p-4 text-red-600">{error}</div>;
     }
 
     return (
-        <div className="p-6">
-            <div className="flex justify-between mb-4 items-center">
+        <div className="p-4">
+            <div className="flex justify-between items-center mb-4">
                 <h1 className="text-2xl font-bold">Workflows</h1>
-                {canCreate && (
-                    <button
-                        onClick={() => navigate("/workflows/create")}
-                        className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-                    >
-                        + New Workflow
-                    </button>
-                )}
-            </div>
-
-            <div className="flex gap-4 mb-4 items-center">
-                <input
-                    type="text"
-                    placeholder="Search..."
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                    className="border px-3 py-2 rounded w-60"
-                />
-
-                <select
-                    value={sortBy}
-                    onChange={(e) => setSortBy(e.target.value as any)}
-                    className="border px-3 py-2 rounded"
+                <button
+                    onClick={() => navigate("/workflows/create")}
+                    className="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded"
                 >
-                    <option value="createdAt">Sort by Created At</option>
-                    <option value="name">Sort by Name</option>
-                </select>
-
-                <label className="flex items-center gap-2">
-                    <input
-                        type="checkbox"
-                        checked={includeArchived}
-                        onChange={(e) => setIncludeArchived(e.target.checked)}
-                    />
-                    Include Archived
-                </label>
+                    Create Workflow
+                </button>
             </div>
 
-            <div className="grid gap-4">
-                {filtered.map((w) => (
-                    <div
-                        key={w.id}
-                        className="border rounded p-4 flex justify-between items-center hover:shadow"
-                    >
-                        <div
-                            className="cursor-pointer"
-                            onClick={() => navigate(`/workflows/${w.id}`)}
-                        >
-                            <h2 className="text-lg font-semibold">{w.name}</h2>
-                            <p className="text-gray-500 text-sm">{w.status}</p>
-                        </div>
-                        {canCreate && (
+            <table className="min-w-full table-auto">
+                <thead>
+                <tr>
+                    <th className="px-4 py-2">Workflow ID</th>
+                    <th className="px-4 py-2">Status</th>
+                    <th className="px-4 py-2">Actions</th>
+                </tr>
+                </thead>
+                <tbody>
+                {workflows.map((workflow) => (
+                    <tr key={workflow.id}>
+                        <td className="border px-4 py-2">
                             <button
-                                onClick={() => setDeletingWorkflow(w)}
-                                className="text-red-600 hover:underline text-sm"
+                                onClick={() => navigate(`/workflows/${workflow.id}`)}
+                                className="text-blue-600 underline"
                             >
-                                🗑 Delete
+                                {workflow.id}
                             </button>
-                        )}
-                    </div>
+                        </td>
+                        <td className="border px-4 py-2">{workflow.status}</td>
+                        <td className="border px-4 py-2 space-x-2">
+                            <button
+                                onClick={() => navigate(`/workflows/${workflow.id}/edit`)}
+                                className="bg-yellow-400 hover:bg-yellow-600 text-white font-bold py-1 px-3 rounded"
+                            >
+                                Edit
+                            </button>
+                            <button
+                                onClick={() => navigate(`/workflows/${workflow.id}/instances`)}
+                                className="bg-purple-500 hover:bg-purple-700 text-white font-bold py-1 px-3 rounded"
+                            >
+                                Instances
+                            </button>
+                            <button
+                                onClick={() => handleStart(workflow.id)}
+                                className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-1 px-3 rounded"
+                            >
+                                Start
+                            </button>
+                            <button
+                                onClick={() => handleDelete(workflow.id)}
+                                className="bg-red-500 hover:bg-red-700 text-white font-bold py-1 px-3 rounded"
+                            >
+                                Delete
+                            </button>
+                        </td>
+                    </tr>
                 ))}
-            </div>
-
-            {deletingWorkflow && (
-                <DeleteWorkflowModal
-                    workflowName={deletingWorkflow.name}
-                    onCancel={() => setDeletingWorkflow(null)}
-                    onConfirm={handleDelete}
-                />
-            )}
+                </tbody>
+            </table>
         </div>
     );
 }

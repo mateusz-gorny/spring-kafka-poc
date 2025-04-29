@@ -12,12 +12,12 @@ import java.util.Map;
 public class TriggerEventPublisher {
 
     private static final Logger log = LoggerFactory.getLogger(TriggerEventPublisher.class);
-    private final KafkaTemplate<String, String> kafkaTemplate;
+    private final KafkaTemplate<String, Object> kafkaTemplate;
     private final ObjectMapper objectMapper;
     private static final String TOPIC = "workflow.trigger.event";
 
     public TriggerEventPublisher(
-            KafkaTemplate<String, String> kafkaTemplate,
+            KafkaTemplate<String, Object> kafkaTemplate,
             ObjectMapper objectMapper
     ) {
         this.kafkaTemplate = kafkaTemplate;
@@ -26,7 +26,7 @@ public class TriggerEventPublisher {
 
     public void publish(Map<String, Object> event) {
         try {
-            kafkaTemplate.send(TOPIC, objectMapper.writeValueAsString(event));
+            kafkaTemplate.send(TOPIC, event);
         } catch (Exception e) {
             log.error("Serialization error while publishing event: {}", event, e);
             throw new RuntimeException("Serialization error while publishing event: " + event, e);

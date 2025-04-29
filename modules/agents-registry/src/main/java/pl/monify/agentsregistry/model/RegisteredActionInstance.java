@@ -14,6 +14,7 @@ public class RegisteredActionInstance {
     private String name;
     private String displayName;
     private String agentId;
+    private String sessionId;
     private String teamId;
 
     private Map<String, Object> inputSchema;

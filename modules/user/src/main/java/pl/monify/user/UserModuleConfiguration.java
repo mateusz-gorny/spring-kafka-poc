@@ -24,7 +24,9 @@ public class UserModuleConfiguration {
                 "TRIGGER_ADMIN",
                 "TRIGGER_VIEW",
                 "WORKFLOW_ADMIN",
-                "WORKFLOW_VIEW"
+                "WORKFLOW_VIEW",
+                "AGENT_ADMIN",
+                "AGENT_USER"
         );
 
         return new InMemoryUserDetailsManager(
@@ -35,7 +37,8 @@ public class UserModuleConfiguration {
                         "USER",
                         "CREDENTIAL_VIEW",
                         "TRIGGER_VIEW",
-                        "WORKFLOW_VIEW"
+                        "WORKFLOW_VIEW",
+                        "AGENT_USER"
                 ).build()
         );
     }
