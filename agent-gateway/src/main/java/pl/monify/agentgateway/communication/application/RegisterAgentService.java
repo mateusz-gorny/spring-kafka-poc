@@ -25,15 +25,15 @@ public class RegisterAgentService implements RegisterAgentUseCase {
         log.info("[WS] Received register message for agent {} for team {}", agentRegisterModel.session().id(), agentRegisterModel.teamId());
         actionRegistry.register(agentRegisterModel);
 
-        AgentRegisteredMessage event = new AgentRegisteredMessage(
+        log.info("[WS] Sending agent registered event for agent {} for team {}", agentRegisterModel.session().id(), agentRegisterModel.teamId());
+        eventSender.send(new AgentRegisteredMessage(
                 agentRegisterModel.agentId(),
+                agentRegisterModel.actionType().name(),
                 agentRegisterModel.actionName(),
                 agentRegisterModel.session().id(),
                 agentRegisterModel.teamId(),
                 agentRegisterModel.inputSchema(),
                 agentRegisterModel.outputSchema()
-        );
-        log.info("[WS] Sending agent registered event for agent {} for team {}", agentRegisterModel.session().id(), agentRegisterModel.teamId());
-        eventSender.send(event);
+        ));
     }
 }

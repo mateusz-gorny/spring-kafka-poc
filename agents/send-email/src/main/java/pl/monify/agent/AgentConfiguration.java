@@ -14,6 +14,7 @@ import pl.monify.agent.infra.metrics.AgentHostStatsProvider;
 import pl.monify.agent.registration.AgentRegistrationClient;
 import pl.monify.agent.task.ActionTaskExecutor;
 import pl.monify.agent.task.TestActionTaskExecutor;
+import pl.monify.agent.task.TestTriggerTaskExecutor;
 import pl.monify.agent.ws.PingScheduler;
 import pl.monify.agent.ws.SessionRegistry;
 import pl.monify.agent.ws.WebSocketListenerImpl;
@@ -48,6 +49,11 @@ public class AgentConfiguration {
     @Bean
     public TestActionTaskExecutor testActionTaskExecutor() {
         return new TestActionTaskExecutor();
+    }
+
+    @Bean
+    public TestTriggerTaskExecutor testTriggerTaskExecutor() {
+        return new TestTriggerTaskExecutor();
     }
 
     @Bean

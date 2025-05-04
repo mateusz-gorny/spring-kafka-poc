@@ -6,10 +6,13 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.reactive.HandlerMapping;
 import org.springframework.web.reactive.handler.SimpleUrlHandlerMapping;
+import pl.monify.agentgateway.agentdelivery.adapter.mongo.ActionExecutionRequestMongoRepository;
+import pl.monify.agentgateway.agentdelivery.domain.application.AgentDispatcher;
 import pl.monify.agentgateway.communication.application.HandleActionExecutionResultService;
 import pl.monify.agentgateway.communication.application.PingAgentService;
 import pl.monify.agentgateway.communication.application.RegisterAgentService;
 import pl.monify.agentgateway.communication.domain.port.out.AgentPingReceivedEventPublisherPort;
+import pl.monify.agentgateway.communication.web.handler.RequestTaskHandler;
 import pl.monify.agentgateway.token.config.JwtKeysProperties;
 import pl.monify.agentgateway.communication.domain.port.in.HandleActionExecutionResultUseCase;
 import pl.monify.agentgateway.communication.domain.port.in.PingAgentUseCase;
@@ -80,6 +83,11 @@ public class CommunicationConfiguration {
     @Bean
     public PingHandler pingHandler(PingAgentUseCase pingAgentUseCase, ObjectMapper objectMapper) {
         return new PingHandler(pingAgentUseCase, objectMapper);
+    }
+
+    @Bean
+    public RequestTaskHandler requestTaskHandler(ObjectMapper mapper, ActionExecutionRequestMongoRepository repository, AgentDispatcher agentDispatcher) {
+        return new RequestTaskHandler(mapper, agentDispatcher, repository);
     }
 
     @Bean

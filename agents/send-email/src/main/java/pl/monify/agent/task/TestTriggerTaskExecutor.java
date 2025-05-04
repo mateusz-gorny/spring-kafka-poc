@@ -3,6 +3,7 @@ package pl.monify.agent.task;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import pl.monify.agent.model.ActionExecutionRequestMessageModel;
+import pl.monify.agent.model.ActionType;
 import pl.monify.agent.model.ExecutorResultModel;
 
 import java.time.Duration;
@@ -10,14 +11,19 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 
-public class TestActionTaskExecutor implements ActionTaskExecutor {
+public class TestTriggerTaskExecutor implements ActionTaskExecutor {
 
-    private static final Logger log = LoggerFactory.getLogger(TestActionTaskExecutor.class);
+    private static final Logger log = LoggerFactory.getLogger(TestTriggerTaskExecutor.class);
     private static final List<String> logs = new LinkedList<>();
 
     @Override
     public String getActionName() {
-        return "test-action";
+        return "trigger-action";
+    }
+
+    @Override
+    public ActionType getActionType() {
+        return ActionType.TRIGGER;
     }
 
     @Override
@@ -57,6 +63,6 @@ public class TestActionTaskExecutor implements ActionTaskExecutor {
 
     @Override
     public Duration getTtl() {
-        return Duration.ofSeconds(5);
+        return Duration.ofSeconds(10);
     }
 }

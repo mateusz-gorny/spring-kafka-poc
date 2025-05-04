@@ -2,7 +2,6 @@ package pl.monify.agentgateway.communication
 
 import io.jsonwebtoken.Jwts
 import io.jsonwebtoken.SignatureAlgorithm
-import io.jsonwebtoken.security.Keys
 import pl.monify.agentgateway.BaseIntegrationSpec
 
 import javax.crypto.spec.SecretKeySpec

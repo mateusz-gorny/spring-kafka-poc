@@ -9,5 +9,6 @@ public record ActionExecutionRequestMessageModel(
         String action,
         String teamId,
         String correlationId,
-        Map<String, Object> input
+        Map<String, Object> input,
+        ActionType actionType
 ) {}

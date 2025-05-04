@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
+import pl.monify.agentgateway.agentdelivery.domain.model.ActionType;
 import pl.monify.agentgateway.communication.adapter.registry.RegisterAgentMessage;
 import pl.monify.agentgateway.communication.domain.model.AgentRegisterModel;
 import pl.monify.agentgateway.communication.domain.model.AgentSession;
@@ -11,6 +12,10 @@ import pl.monify.agentgateway.communication.domain.port.in.RegisterAgentUseCase;
 import pl.monify.agentgateway.communication.exception.KafkaException;
 import pl.monify.agentgateway.communication.web.AgentMessageHandler;
 import reactor.core.publisher.Mono;
+
+import java.time.Duration;
+import java.time.format.DateTimeParseException;
+import java.util.Optional;
 
 public class RegisterHandler implements AgentMessageHandler {
 
@@ -43,7 +48,17 @@ public class RegisterHandler implements AgentMessageHandler {
                 log.error("[WS] Invalid register message payload");
                 return session.sendText("{\"type\":\"error\",\"payload\":{\"message\":\"invalid payload\"}}");
             }
+
             log.info("[WS] Registering agent {} for team {}", msg.action(), session.teamId());
+
+            Duration ttl = null;
+            if (msg.ttl() != null) {
+                try {
+                    ttl = Duration.parse(msg.ttl());
+                } catch (DateTimeParseException e) {
+                    log.warn("[WS] Invalid TTL format from agent '{}': {}", session.id(), msg.ttl());
+                }
+            }
 
             registerAgent.register(new AgentRegisterModel(
                     msg.agentId(),
@@ -51,7 +66,11 @@ public class RegisterHandler implements AgentMessageHandler {
                     msg.action(),
                     session,
                     msg.inputSchema(),
-                    msg.outputSchema()
+                    msg.outputSchema(),
+                    Optional.ofNullable(msg.actionType())
+                            .map(s -> ActionType.valueOf(s.toUpperCase()))
+                            .orElse(ActionType.ACTION),
+                    ttl
             ));
 
             log.info("[WS] Agent registered for team {}", session.teamId());

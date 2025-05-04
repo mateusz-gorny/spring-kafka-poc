@@ -9,26 +9,32 @@ import org.slf4j.LoggerFactory;
 import pl.monify.agent.model.ActionExecutionRequestMessageModel;
 import pl.monify.agent.model.ActionExecutionResultModel;
 import pl.monify.agent.model.ExecutorResultModel;
+import pl.monify.agent.model.RequestActionExecutionMessage;
 import pl.monify.agent.registration.AgentRegistrationClient;
 import pl.monify.agent.task.ActionTaskExecutor;
+import pl.monify.agent.model.ActionType;
+import pl.monify.agent.ws.model.BaseMessageModel;
 
-import java.util.Arrays;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.time.Duration;
+import java.util.*;
+import java.util.concurrent.*;
 
 public class WebSocketListenerImpl extends WebSocketListener {
 
     private static final Logger log = LoggerFactory.getLogger(WebSocketListenerImpl.class);
+
     private final ObjectMapper mapper;
     private final SessionRegistry registry;
     private final ActionTaskExecutor[] actionTaskExecutors;
     private final AgentRegistrationClient agentRegistrationClient;
+    private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
 
-    public WebSocketListenerImpl(ObjectMapper mapper,
-                                 SessionRegistry registry,
-                                 ActionTaskExecutor[] actionTaskExecutors,
-                                 AgentRegistrationClient agentRegistrationClient) {
+    public WebSocketListenerImpl(
+            ObjectMapper mapper,
+            SessionRegistry registry,
+            ActionTaskExecutor[] actionTaskExecutors,
+            AgentRegistrationClient agentRegistrationClient
+    ) {
         this.mapper = mapper;
         this.registry = registry;
         this.actionTaskExecutors = actionTaskExecutors;
@@ -45,35 +51,54 @@ public class WebSocketListenerImpl extends WebSocketListener {
     public void onMessage(WebSocket socket, String text) {
         log.info("[WS] Received raw: {}", text);
         try {
-            ActionExecutionRequestMessageModel actionExecutionRequestMessageModel = mapper.readValue(text, ActionExecutionRequestMessageModel.class);
-            log.info("[WS] Received actionExecutionRequestMessageModel: {}", actionExecutionRequestMessageModel);
-            if ("ActionExecutionRequest".equals(actionExecutionRequestMessageModel.type())) {
-                log.info("[WS] Received all executors: {}", (Object) actionTaskExecutors);
+            BaseMessageModel base = mapper.readValue(text, BaseMessageModel.class);
+            switch (base.type()) {
+                case "ActionExecutionRequest" -> {
+                    ActionExecutionRequestMessageModel message =
+                            mapper.readValue(text, ActionExecutionRequestMessageModel.class);
 
-                Optional<ActionTaskExecutor> taskExecutor = Arrays.stream(actionTaskExecutors)
-                        .filter(executor -> executor.getActionName().equals(actionExecutionRequestMessageModel.action()))
-                        .findAny();
+                    Optional<ActionTaskExecutor> executorOpt = Arrays.stream(actionTaskExecutors)
+                            .filter(e -> e.getActionName().equals(message.action()))
+                            .findFirst();
 
-                log.info("[WS] Found executor for action {}: {}", actionExecutionRequestMessageModel.action(), taskExecutor.isPresent());
-                if (taskExecutor.isEmpty()) {
-                    log.error("[WS] No executor found for action {}", actionExecutionRequestMessageModel.action());
-                    registry.get().send(mapper.writeValueAsString(new ActionExecutionResultModel(
-                            actionExecutionRequestMessageModel.correlationId(),
-                            new ExecutorResultModel("false", Map.of(), List.of())
-                    )));
+                    if (executorOpt.isEmpty()) {
+                        log.error("[WS] No executor found for action {}", message.action());
+                        registry.get().send(mapper.writeValueAsString(
+                                new ActionExecutionResultModel(message.correlationId(), new ExecutorResultModel("false", Map.of(), List.of()))
+                        ));
+                        return;
+                    }
 
-                    return;
+                    ActionTaskExecutor executor = executorOpt.get();
+                    ExecutorResultModel result = executor.execute(message);
+                    registry.get().send(mapper.writeValueAsString(
+                            new ActionExecutionResultModel(message.correlationId(), result)
+                    ));
+
+                    log.info("[WS] Action {} executed", message.action());
+
+                    if (executor.getActionType() == ActionType.TRIGGER) {
+                        log.info("[WS] Resending request-task for trigger action: {}", message.action());
+                        Duration delay = executor.getTtl();
+                        scheduler.schedule(() -> {
+                            try {
+                                var request = new RequestActionExecutionMessage(message.action(), delay.toString());
+                                var json = mapper.writeValueAsString(request);
+                                registry.get().send(json);
+                                log.info("[WS] Resent request-task for trigger action: {}", message.action());
+                            } catch (Exception e) {
+                                log.error("[WS] Failed to resend request-task", e);
+                            }
+                        }, delay.toSeconds(), TimeUnit.SECONDS);
+                    }
                 }
 
-                log.info("[WS] Executing action {}", actionExecutionRequestMessageModel.action());
-                registry.get().send(mapper.writeValueAsString(new ActionExecutionResultModel(
-                        actionExecutionRequestMessageModel.correlationId(),
-                        taskExecutor.get().execute(actionExecutionRequestMessageModel)
-                )));
-                log.info("[WS] Action sends ws {}", actionExecutionRequestMessageModel.action());
+                case "error" -> log.error("[WS] Received error message: {}", text);
+
+                default -> log.info("[WS] Ignoring unsupported message type: {}", base.type());
             }
-        } catch (Exception error) {
-            log.error("[WS] Failed to process message: {}", text, error);
+        } catch (Exception e) {
+            log.error("[WS] Failed to process message: {}", text, e);
         }
     }
 }

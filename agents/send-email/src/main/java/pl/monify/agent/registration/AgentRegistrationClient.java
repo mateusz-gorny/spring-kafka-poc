@@ -11,7 +11,7 @@ import pl.monify.agent.ws.SessionRegistry;
 import java.util.Map;
 import java.util.UUID;
 
-public class AgentRegistrationClient {
+public final class AgentRegistrationClient {
 
     private static final Logger log = LoggerFactory.getLogger(AgentRegistrationClient.class);
     private final AgentProperties props;
@@ -19,7 +19,12 @@ public class AgentRegistrationClient {
     private final SessionRegistry registry;
     private final ActionTaskExecutor[] actionTaskExecutors;
 
-    public AgentRegistrationClient(AgentProperties props, ObjectMapper mapper, SessionRegistry registry, ActionTaskExecutor[] actionTaskExecutors) {
+    public AgentRegistrationClient(
+            AgentProperties props,
+            ObjectMapper mapper,
+            SessionRegistry registry,
+            ActionTaskExecutor[] actionTaskExecutors
+    ) {
         this.props = props;
         this.mapper = mapper;
         this.registry = registry;
@@ -36,6 +41,7 @@ public class AgentRegistrationClient {
                         "teamId", props.teamId(),
                         "action", actionTaskExecutor.getActionName(),
                         "agentId", props.id(),
+                        "ttl", actionTaskExecutor.getTtl().toSeconds(),
                         "correlationId", UUID.randomUUID().toString(),
                         "inputSchema", actionTaskExecutor.getInputSchema(),
                         "outputSchema", actionTaskExecutor.getOutputSchema()

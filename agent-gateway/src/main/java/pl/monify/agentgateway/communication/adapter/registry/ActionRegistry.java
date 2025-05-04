@@ -19,7 +19,9 @@ public class ActionRegistry implements ActionRegistryPort, AgentSessionFinderPor
         registry.put(agentRegisterModel.teamId() + ":" + agentRegisterModel.actionName(), new RegisteredAction(
                 agentRegisterModel.session(),
                 agentRegisterModel.inputSchema(),
-                agentRegisterModel.outputSchema()
+                agentRegisterModel.outputSchema(),
+                agentRegisterModel.actionType(),
+                agentRegisterModel.ttl()
         ));
     }
 
